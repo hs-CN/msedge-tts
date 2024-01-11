@@ -1,0 +1,10 @@
+pub static VOICE_LIST_URL:&str="https://speech.platform.bing.com/consumer/speech/synthesize/readaloud/voices/list?trustedclienttoken=6A5AA1D4EAFF4E9FB37E23D68491D6F4";
+pub static SEC_CH_UA: &str = r#""Not_A Brand";v="8", "Chromium";v="120", "Microsoft Edge";v="120""#;
+pub static SEC_CH_UA_MOBILE: &str = "?0";
+pub static SEC_CH_UA_PLATFORM: &str = r#""Windows""#;
+pub static SEC_FETCH_SITE: &str = "none";
+pub static SEC_FETCH_MODE: &str = "cors";
+pub static SEC_FETCH_DEST: &str = "empty";
+pub static USER_AGENT:&str="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0";
+pub static WSS_URL:&str="wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=6A5AA1D4EAFF4E9FB37E23D68491D6F4&ConnectionId=";
+pub static ORIGIN: &str = "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold";

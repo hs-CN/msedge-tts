@@ -1,4 +1,4 @@
-use msedge_tts::{voice::get_voices_list, MSEdgeTTS, SpeechConfig};
+use msedge_tts::{tts::MSEdgeTTS, tts::SpeechConfig, voice::get_voices_list};
 
 fn main() {
     println!("get voices list...");
