@@ -3,8 +3,18 @@ pub mod voice;
 use anyhow::{bail, Result};
 use chrono::Local;
 use serde_json::from_str;
-use std::net::TcpStream;
-use tungstenite::{client::IntoClientRequest, connect, http, stream::MaybeTlsStream, WebSocket};
+use std::{
+    net::{TcpStream, ToSocketAddrs},
+    sync::Arc,
+};
+use tungstenite::{
+    client::{uri_mode, IntoClientRequest},
+    client_tls_with_config, error,
+    handshake::client::Request,
+    http::header,
+    stream::{MaybeTlsStream, NoDelay},
+    Connector, Error, WebSocket,
+};
 
 static USER_AGENT:&str="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0";
 
@@ -142,19 +152,63 @@ pub struct MSEdgeTTS(WebSocket<MaybeTlsStream<TcpStream>>);
 
 impl MSEdgeTTS {
     pub fn connect() -> Result<Self> {
+        let request = Self::build_request()?;
+        let stream = Self::try_connect(&request)?;
+        let connector = Self::build_connector();
+        let (websocket, _) = client_tls_with_config(request, stream, None, connector)?;
+        Ok(Self(websocket))
+    }
+
+    fn build_request() -> Result<Request> {
         static WSS_URL:&str="wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=6A5AA1D4EAFF4E9FB37E23D68491D6F4&ConnectionId=";
         static ORIGIN: &str = "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold";
         let uuid = uuid::Uuid::new_v4().simple().to_string();
 
         let mut request = format!("{}{}", WSS_URL, uuid).into_client_request()?;
         let headers = request.headers_mut();
-        headers.insert(http::header::PRAGMA, "no-cache".parse()?);
-        headers.insert(http::header::CACHE_CONTROL, "no-cache".parse()?);
-        headers.insert(http::header::USER_AGENT, USER_AGENT.parse()?);
-        headers.insert(http::header::ORIGIN, ORIGIN.parse()?);
+        headers.insert(header::PRAGMA, "no-cache".parse()?);
+        headers.insert(header::CACHE_CONTROL, "no-cache".parse()?);
+        headers.insert(header::USER_AGENT, USER_AGENT.parse()?);
+        headers.insert(header::ORIGIN, ORIGIN.parse()?);
 
-        let (websocket, _) = connect(request)?;
-        Ok(Self(websocket))
+        Ok(request)
+    }
+
+    fn try_connect(request: &Request) -> Result<TcpStream> {
+        let uri = request.uri();
+        let mode = uri_mode(uri)?;
+        let host = request
+            .uri()
+            .host()
+            .ok_or(Error::Url(error::UrlError::NoHostName))?;
+        let host = if host.starts_with('[') {
+            &host[1..host.len() - 1]
+        } else {
+            host
+        };
+        let port = uri.port_u16().unwrap_or(match mode {
+            tungstenite::stream::Mode::Plain => 80,
+            tungstenite::stream::Mode::Tls => 443,
+        });
+        let addrs = (host, port).to_socket_addrs()?;
+        for addr in addrs {
+            if let Ok(mut stream) = TcpStream::connect(addr) {
+                NoDelay::set_nodelay(&mut stream, true)?;
+                return Ok(stream);
+            }
+        }
+        bail!("failed to connect to {}", uri)
+    }
+
+    fn build_connector() -> Option<Connector> {
+        let mut root_store = rustls::RootCertStore::empty();
+        root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+        let mut client_config = rustls::ClientConfig::builder()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
+        // enabel SSLKEYLOGFILE
+        client_config.key_log = Arc::new(rustls::KeyLogFile::new());
+        Some(Connector::Rustls(Arc::new(client_config)))
     }
 
     pub fn synthesize(&mut self, text: &str, config: &SpeechConfig) -> Result<SynthesizedAudio> {
