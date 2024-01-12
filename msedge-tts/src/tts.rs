@@ -1,12 +1,8 @@
-use anyhow::{bail, Result};
-use serde_json::from_str;
-use std::{
-    net::TcpStream,
-    sync::{Arc, Mutex},
-};
+use std::net::TcpStream;
+
 use tungstenite::{
     client::IntoClientRequest, handshake::client::Request, http::header, stream::MaybeTlsStream,
-    Message, WebSocket,
+    WebSocket,
 };
 
 use crate::{constants, voice::Voice};
@@ -87,8 +83,8 @@ pub struct AudioMetadata {
 }
 
 impl AudioMetadata {
-    fn from_str(text: &str) -> Result<Vec<Self>> {
-        let value: serde_json::Value = from_str(text)?;
+    fn from_str(text: &str) -> anyhow::Result<Vec<Self>> {
+        let value: serde_json::Value = serde_json::from_str(text)?;
         if let Some(items) = value["Metadata"].as_array() {
             let mut audio_metadata = Vec::new();
             for item in items {
@@ -111,7 +107,7 @@ impl AudioMetadata {
             }
             Ok(audio_metadata)
         } else {
-            bail!("unexpected json text: {:#?}", value)
+            anyhow::bail!("unexpected json text: {:#?}", value)
         }
     }
 }
@@ -126,11 +122,15 @@ pub struct SynthesizedAudio {
 pub struct MSEdgeTTS(WebSocket<MaybeTlsStream<TcpStream>>);
 
 impl MSEdgeTTS {
-    pub fn connect() -> Result<Self> {
+    pub fn connect() -> anyhow::Result<Self> {
         Ok(Self(websocket_connect()?))
     }
 
-    pub fn synthesize(&mut self, text: &str, config: &SpeechConfig) -> Result<SynthesizedAudio> {
+    pub fn synthesize(
+        &mut self,
+        text: &str,
+        config: &SpeechConfig,
+    ) -> anyhow::Result<SynthesizedAudio> {
         let config_message = build_config_message(config);
         let ssml_message = build_ssml_message(text, config);
         self.0.send(config_message)?;
@@ -156,7 +156,7 @@ impl MSEdgeTTS {
                     } else if text.contains("turn.end") {
                         break;
                     } else {
-                        bail!("unexpected text message: {}", text)
+                        anyhow::bail!("unexpected text message: {}", text)
                     }
                 }
                 tungstenite::Message::Binary(bytes) => {
@@ -166,7 +166,7 @@ impl MSEdgeTTS {
                     }
                 }
                 tungstenite::Message::Close(_) => break,
-                _ => bail!("unexpected message: {}", message),
+                _ => anyhow::bail!("unexpected message: {}", message),
             }
         }
 
@@ -184,72 +184,7 @@ impl MSEdgeTTS {
     }
 }
 
-pub struct AudioSynthesizer(Arc<Mutex<WebSocket<MaybeTlsStream<TcpStream>>>>);
-
-impl AudioSynthesizer {
-    pub fn send(&mut self, text: &str, config: &SpeechConfig) -> Result<()> {
-        let config_message = build_config_message(config);
-        let ssml_message = build_ssml_message(text, config);
-        let mut websocket = self.0.lock().unwrap();
-        websocket.send(config_message)?;
-        websocket.send(ssml_message)?;
-        Ok(())
-    }
-}
-
-pub struct AudioReceiver {
-    websocket: Arc<Mutex<WebSocket<MaybeTlsStream<TcpStream>>>>,
-    turn_start: bool,
-    response: bool,
-}
-
-impl AudioReceiver {
-    pub fn recv(&mut self) -> Result<Option<AudioResponse>> {
-        let mut websocket = self.websocket.lock().unwrap();
-        let message = websocket.read()?;
-        match message {
-            Message::Text(text) => {
-                if text.contains("audio.metadata") {
-                    if let Some(index) = text.find("\r\n\r\n") {
-                        let metadata = AudioMetadata::from_str(&text[index + 4..])?;
-                        Ok(Some(AudioResponse::AudioMetadata(metadata)))
-                    } else {
-                        Ok(None)
-                    }
-                } else if text.contains("turn.start") {
-                    self.turn_start = true;
-                    Ok(None)
-                } else if text.contains("response") {
-                    self.response = true;
-                    Ok(None)
-                } else if text.contains("turn.end") {
-                    Ok(None)
-                } else {
-                    bail!("unexpected text message: {}", text)
-                }
-            }
-            Message::Binary(bytes) => {
-                if self.turn_start || self.response {
-                    let header_len = u16::from_be_bytes([bytes[0], bytes[1]]) as usize;
-                    Ok(Some(AudioResponse::AudioBytes(
-                        bytes[header_len + 2..].to_vec(),
-                    )))
-                } else {
-                    Ok(None)
-                }
-            }
-            Message::Close(_) => Ok(None),
-            _ => bail!("unexpected message: {}", message),
-        }
-    }
-}
-
-pub enum AudioResponse {
-    AudioBytes(Vec<u8>),
-    AudioMetadata(Vec<AudioMetadata>),
-}
-
-fn build_websocket_request() -> Result<Request> {
+fn build_websocket_request() -> anyhow::Result<Request> {
     let uuid = uuid::Uuid::new_v4().simple().to_string();
     let mut request = format!("{}{}", constants::WSS_URL, uuid).into_client_request()?;
     let headers = request.headers_mut();
@@ -268,7 +203,7 @@ fn websocket_connect() -> Result<WebSocket<MaybeTlsStream<TcpStream>>> {
 }
 
 #[cfg(feature = "ssl-key-log")]
-fn websocket_connect() -> Result<WebSocket<MaybeTlsStream<TcpStream>>> {
+fn websocket_connect() -> anyhow::Result<WebSocket<MaybeTlsStream<TcpStream>>> {
     let request = build_websocket_request()?;
     let stream = try_tcp_connect(&request)?;
     let connector = build_rustls_connector();
@@ -277,7 +212,7 @@ fn websocket_connect() -> Result<WebSocket<MaybeTlsStream<TcpStream>>> {
 }
 
 #[cfg(feature = "ssl-key-log")]
-fn try_tcp_connect(request: &Request) -> Result<TcpStream> {
+fn try_tcp_connect(request: &Request) -> anyhow::Result<TcpStream> {
     use std::net::ToSocketAddrs;
     use tungstenite::error::UrlError;
     use tungstenite::stream::NoDelay;
@@ -292,14 +227,13 @@ fn try_tcp_connect(request: &Request) -> Result<TcpStream> {
             return Ok(stream);
         }
     }
-    bail!("failed to connect to {}", uri)
+    anyhow::bail!("failed to connect to {}", uri)
 }
 
 #[cfg(feature = "ssl-key-log")]
 fn build_rustls_connector() -> Option<tungstenite::Connector> {
     let mut root_store = rustls::RootCertStore::empty();
     root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-
     let mut client_config = rustls::ClientConfig::builder()
         .with_root_certificates(root_store)
         .with_no_client_auth();
@@ -309,20 +243,7 @@ fn build_rustls_connector() -> Option<tungstenite::Connector> {
     )))
 }
 
-pub fn audio_synthesizer_connect() -> Result<(AudioSynthesizer, AudioReceiver)> {
-    let websocket = websocket_connect()?;
-    let websocket = Arc::new(Mutex::new(websocket));
-    Ok((
-        AudioSynthesizer(websocket.clone()),
-        AudioReceiver {
-            websocket,
-            turn_start: false,
-            response: false,
-        },
-    ))
-}
-
-fn build_config_message(config: &SpeechConfig) -> Message {
+fn build_config_message(config: &SpeechConfig) -> tungstenite::Message {
     static SPEECH_CONFIG_HEAD: &str = r#"{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"true"},"outputFormat":""#;
     static SPEECH_CONFIG_TAIL: &str = r#""}}}}"#;
     let speech_config_message = format!(
@@ -332,10 +253,10 @@ fn build_config_message(config: &SpeechConfig) -> Message {
         config.audio_format,
         SPEECH_CONFIG_TAIL
     );
-    Message::Text(speech_config_message)
+    tungstenite::Message::Text(speech_config_message)
 }
 
-fn build_ssml_message(text: &str, config: &SpeechConfig) -> Message {
+fn build_ssml_message(text: &str, config: &SpeechConfig) -> tungstenite::Message {
     let ssml = format!(
         "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><voice name='{}'><prosody pitch='{:+}Hz' rate='{:+}%' volume='{:+}%'>{}</prosody></voice></speak>",
         config.voice_name,
@@ -350,5 +271,5 @@ fn build_ssml_message(text: &str, config: &SpeechConfig) -> Message {
         chrono::Local::now().to_rfc2822(),
         ssml,
     );
-    Message::Text(ssml_message)
+    tungstenite::Message::Text(ssml_message)
 }
