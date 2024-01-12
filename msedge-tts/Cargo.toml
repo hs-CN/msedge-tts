@@ -6,12 +6,18 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["tungstenite/native-tls"]
-ssl-key-log = ["rustls", "webpki-roots", "tungstenite/rustls-tls-webpki-roots"]
+default = ["tungstenite/native-tls", "async-tungstenite/async-native-tls"]
+ssl-key-log = [
+    "rustls",
+    "rustls-native-certs",
+    "tungstenite/rustls-tls-native-roots",
+    "async-tungstenite/async-tls",
+]
 
 
 [dependencies]
 tungstenite = "0.21.0"
+async-tungstenite = "0.24.0"
 anyhow = "1.0.79"
 chrono = "0.4.31"
 isahc = { version = "1.7.2", features = ["json"] }
@@ -19,4 +25,4 @@ serde = { version = "1.0.195", features = ["derive"] }
 serde_json = "1.0.111"
 uuid = { version = "1.6.1", features = ["fast-rng", "v4"] }
 rustls = { version = "0.22.2", optional = true }
-webpki-roots = { version = "0.26.0", optional = true }
+rustls-native-certs = { version = "0.7.0", optional = true }

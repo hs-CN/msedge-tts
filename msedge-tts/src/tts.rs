@@ -196,7 +196,7 @@ fn build_websocket_request() -> anyhow::Result<Request> {
 }
 
 #[cfg(not(feature = "ssl-key-log"))]
-fn websocket_connect() -> Result<WebSocket<MaybeTlsStream<TcpStream>>> {
+fn websocket_connect() -> anyhow::Result<WebSocket<MaybeTlsStream<TcpStream>>> {
     let request = build_websocket_request()?;
     let (websocket, _) = tungstenite::connect(request)?;
     Ok(websocket)
@@ -206,8 +206,9 @@ fn websocket_connect() -> Result<WebSocket<MaybeTlsStream<TcpStream>>> {
 fn websocket_connect() -> anyhow::Result<WebSocket<MaybeTlsStream<TcpStream>>> {
     let request = build_websocket_request()?;
     let stream = try_tcp_connect(&request)?;
-    let connector = build_rustls_connector();
-    let (websocket, _) = tungstenite::client_tls_with_config(request, stream, None, connector)?;
+    let connector = build_rustls_connector()?;
+    let (websocket, _) =
+        tungstenite::client_tls_with_config(request, stream, None, Some(connector))?;
     Ok(websocket)
 }
 
@@ -231,14 +232,14 @@ fn try_tcp_connect(request: &Request) -> anyhow::Result<TcpStream> {
 }
 
 #[cfg(feature = "ssl-key-log")]
-fn build_rustls_connector() -> Option<tungstenite::Connector> {
+fn build_rustls_connector() -> anyhow::Result<tungstenite::Connector> {
     let mut root_store = rustls::RootCertStore::empty();
-    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+    root_store.add_parsable_certificates(rustls_native_certs::load_native_certs()?);
     let mut client_config = rustls::ClientConfig::builder()
         .with_root_certificates(root_store)
         .with_no_client_auth();
     client_config.key_log = std::sync::Arc::new(rustls::KeyLogFile::new());
-    Some(tungstenite::Connector::Rustls(std::sync::Arc::new(
+    Ok(tungstenite::Connector::Rustls(std::sync::Arc::new(
         client_config,
     )))
 }
