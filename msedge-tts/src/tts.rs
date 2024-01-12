@@ -1,16 +1,9 @@
 use anyhow::{bail, Result};
 use serde_json::from_str;
-use std::{
-    net::{TcpStream, ToSocketAddrs},
-    sync::Arc,
-};
+use std::net::TcpStream;
 use tungstenite::{
-    client::IntoClientRequest,
-    client_tls_with_config, error,
-    handshake::client::Request,
-    http::header,
-    stream::{MaybeTlsStream, NoDelay},
-    Connector, Error, Message, WebSocket,
+    client::IntoClientRequest, handshake::client::Request, http::header, stream::MaybeTlsStream,
+    Message, WebSocket,
 };
 
 use crate::{constants, voice::Voice};
@@ -131,10 +124,7 @@ pub struct MSEdgeTTS(WebSocket<MaybeTlsStream<TcpStream>>);
 
 impl MSEdgeTTS {
     pub fn connect() -> Result<Self> {
-        let request = build_websocket_request()?;
-        let stream = try_tcp_connect(&request)?;
-        let connector = build_rustls_connector();
-        let (websocket, _) = client_tls_with_config(request, stream, None, connector)?;
+        let websocket = connect()?;
         Ok(Self(websocket))
     }
 
@@ -203,9 +193,31 @@ fn build_websocket_request() -> Result<Request> {
     Ok(request)
 }
 
+#[cfg(not(feature = "ssl-key-log"))]
+fn connect() -> Result<WebSocket<MaybeTlsStream<TcpStream>>> {
+    let request = build_websocket_request()?;
+    let (websocket, _) = tungstenite::connect(request)?;
+    Ok(websocket)
+}
+
+#[cfg(feature = "ssl-key-log")]
+fn connect() -> Result<WebSocket<MaybeTlsStream<TcpStream>>> {
+    let request = build_websocket_request()?;
+    let stream = try_tcp_connect(&request)?;
+    let connector = build_rustls_connector();
+    let (websocket, _) = tungstenite::client_tls_with_config(request, stream, None, connector)?;
+    Ok(websocket)
+}
+
+#[cfg(feature = "ssl-key-log")]
 fn try_tcp_connect(request: &Request) -> Result<TcpStream> {
+    use std::net::ToSocketAddrs;
+    use tungstenite::error::UrlError;
+    use tungstenite::stream::NoDelay;
+    use tungstenite::Error;
+
     let uri = request.uri();
-    let host = uri.host().ok_or(Error::Url(error::UrlError::NoHostName))?;
+    let host = uri.host().ok_or(Error::Url(UrlError::NoHostName))?;
     let addrs = (host, 443).to_socket_addrs()?;
     for addr in addrs {
         if let Ok(mut stream) = TcpStream::connect(addr) {
@@ -216,15 +228,18 @@ fn try_tcp_connect(request: &Request) -> Result<TcpStream> {
     bail!("failed to connect to {}", uri)
 }
 
-fn build_rustls_connector() -> Option<Connector> {
+#[cfg(feature = "ssl-key-log")]
+fn build_rustls_connector() -> Option<tungstenite::Connector> {
     let mut root_store = rustls::RootCertStore::empty();
     root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+
     let mut client_config = rustls::ClientConfig::builder()
         .with_root_certificates(root_store)
         .with_no_client_auth();
-    // enabel SSLKEYLOGFILE support
-    client_config.key_log = Arc::new(rustls::KeyLogFile::new());
-    Some(Connector::Rustls(Arc::new(client_config)))
+    client_config.key_log = std::sync::Arc::new(rustls::KeyLogFile::new());
+    Some(tungstenite::Connector::Rustls(std::sync::Arc::new(
+        client_config,
+    )))
 }
 
 fn build_config_message(config: &SpeechConfig) -> Message {

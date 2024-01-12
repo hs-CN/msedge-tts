@@ -1,4 +1,5 @@
 use anyhow::Result;
+use isahc::{ReadResponseExt, Request, RequestExt};
 use serde::Deserialize;
 
 use crate::constants;
@@ -53,15 +54,16 @@ impl From<&str> for Voice {
 }
 
 pub fn get_voices_list() -> Result<Vec<Voice>> {
-    let body: Vec<Voice> = ureq::get(constants::VOICE_LIST_URL)
-        .set("Sec-CH-UA", constants::SEC_CH_UA)
-        .set("Sec-CH-UA-Mobile", constants::SEC_CH_UA_MOBILE)
-        .set("User-Agent", constants::USER_AGENT)
-        .set("Sec-CH-UA-Platform", constants::SEC_CH_UA_PLATFORM)
-        .set("Sec-Fetch-Site", constants::SEC_FETCH_SITE)
-        .set("Sec-Fetch-Mode", constants::SEC_FETCH_MODE)
-        .set("Sec-Fetch-Dest", constants::SEC_FETCH_DEST)
-        .call()?
-        .into_json()?;
+    let body = Request::get(constants::VOICE_LIST_URL)
+        .header("Sec-CH-UA", constants::SEC_CH_UA)
+        .header("Sec-CH-UA-Mobile", constants::SEC_CH_UA_MOBILE)
+        .header("User-Agent", constants::USER_AGENT)
+        .header("Sec-CH-UA-Platform", constants::SEC_CH_UA_PLATFORM)
+        .header("Sec-Fetch-Site", constants::SEC_FETCH_SITE)
+        .header("Sec-Fetch-Mode", constants::SEC_FETCH_MODE)
+        .header("Sec-Fetch-Dest", constants::SEC_FETCH_DEST)
+        .body(())?
+        .send()?
+        .json()?;
     Ok(body)
 }
