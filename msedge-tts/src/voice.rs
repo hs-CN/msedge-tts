@@ -1,10 +1,7 @@
-use anyhow::Result;
-use isahc::{ReadResponseExt, Request, RequestExt};
-use serde::Deserialize;
-
 use crate::constants;
+use isahc::{AsyncReadResponseExt, ReadResponseExt, RequestExt};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, serde::Deserialize)]
 pub struct VoiceTag {
     #[serde(rename = "ContentCategories")]
     pub content_categories: Option<Vec<String>>,
@@ -12,7 +9,7 @@ pub struct VoiceTag {
     pub voice_personalities: Option<Vec<String>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, serde::Deserialize)]
 pub struct Voice {
     #[serde(rename = "Name")]
     pub name: String,
@@ -53,8 +50,16 @@ impl From<&str> for Voice {
     }
 }
 
-pub fn get_voices_list() -> Result<Vec<Voice>> {
-    let body = Request::get(constants::VOICE_LIST_URL)
+pub fn get_voices_list() -> anyhow::Result<Vec<Voice>> {
+    Ok(build_request()?.send()?.json()?)
+}
+
+pub async fn get_voices_list_async() -> anyhow::Result<Vec<Voice>> {
+    Ok(build_request()?.send_async().await?.json().await?)
+}
+
+fn build_request() -> std::result::Result<isahc::Request<()>, isahc::http::Error> {
+    isahc::Request::get(constants::VOICE_LIST_URL)
         .header("Sec-CH-UA", constants::SEC_CH_UA)
         .header("Sec-CH-UA-Mobile", constants::SEC_CH_UA_MOBILE)
         .header("User-Agent", constants::USER_AGENT)
@@ -62,8 +67,5 @@ pub fn get_voices_list() -> Result<Vec<Voice>> {
         .header("Sec-Fetch-Site", constants::SEC_FETCH_SITE)
         .header("Sec-Fetch-Mode", constants::SEC_FETCH_MODE)
         .header("Sec-Fetch-Dest", constants::SEC_FETCH_DEST)
-        .body(())?
-        .send()?
-        .json()?;
-    Ok(body)
+        .body(())
 }
