@@ -1,6 +1,9 @@
 use anyhow::{bail, Result};
 use serde_json::from_str;
-use std::net::TcpStream;
+use std::{
+    net::TcpStream,
+    sync::{Arc, Mutex},
+};
 use tungstenite::{
     client::IntoClientRequest, handshake::client::Request, http::header, stream::MaybeTlsStream,
     Message, WebSocket,
@@ -124,8 +127,7 @@ pub struct MSEdgeTTS(WebSocket<MaybeTlsStream<TcpStream>>);
 
 impl MSEdgeTTS {
     pub fn connect() -> Result<Self> {
-        let websocket = connect()?;
-        Ok(Self(websocket))
+        Ok(Self(websocket_connect()?))
     }
 
     pub fn synthesize(&mut self, text: &str, config: &SpeechConfig) -> Result<SynthesizedAudio> {
@@ -182,6 +184,71 @@ impl MSEdgeTTS {
     }
 }
 
+pub struct AudioSynthesizer(Arc<Mutex<WebSocket<MaybeTlsStream<TcpStream>>>>);
+
+impl AudioSynthesizer {
+    pub fn send(&mut self, text: &str, config: &SpeechConfig) -> Result<()> {
+        let config_message = build_config_message(config);
+        let ssml_message = build_ssml_message(text, config);
+        let mut websocket = self.0.lock().unwrap();
+        websocket.send(config_message)?;
+        websocket.send(ssml_message)?;
+        Ok(())
+    }
+}
+
+pub struct AudioReceiver {
+    websocket: Arc<Mutex<WebSocket<MaybeTlsStream<TcpStream>>>>,
+    turn_start: bool,
+    response: bool,
+}
+
+impl AudioReceiver {
+    pub fn recv(&mut self) -> Result<Option<AudioResponse>> {
+        let mut websocket = self.websocket.lock().unwrap();
+        let message = websocket.read()?;
+        match message {
+            Message::Text(text) => {
+                if text.contains("audio.metadata") {
+                    if let Some(index) = text.find("\r\n\r\n") {
+                        let metadata = AudioMetadata::from_str(&text[index + 4..])?;
+                        Ok(Some(AudioResponse::AudioMetadata(metadata)))
+                    } else {
+                        Ok(None)
+                    }
+                } else if text.contains("turn.start") {
+                    self.turn_start = true;
+                    Ok(None)
+                } else if text.contains("response") {
+                    self.response = true;
+                    Ok(None)
+                } else if text.contains("turn.end") {
+                    Ok(None)
+                } else {
+                    bail!("unexpected text message: {}", text)
+                }
+            }
+            Message::Binary(bytes) => {
+                if self.turn_start || self.response {
+                    let header_len = u16::from_be_bytes([bytes[0], bytes[1]]) as usize;
+                    Ok(Some(AudioResponse::AudioBytes(
+                        bytes[header_len + 2..].to_vec(),
+                    )))
+                } else {
+                    Ok(None)
+                }
+            }
+            Message::Close(_) => Ok(None),
+            _ => bail!("unexpected message: {}", message),
+        }
+    }
+}
+
+pub enum AudioResponse {
+    AudioBytes(Vec<u8>),
+    AudioMetadata(Vec<AudioMetadata>),
+}
+
 fn build_websocket_request() -> Result<Request> {
     let uuid = uuid::Uuid::new_v4().simple().to_string();
     let mut request = format!("{}{}", constants::WSS_URL, uuid).into_client_request()?;
@@ -194,14 +261,14 @@ fn build_websocket_request() -> Result<Request> {
 }
 
 #[cfg(not(feature = "ssl-key-log"))]
-fn connect() -> Result<WebSocket<MaybeTlsStream<TcpStream>>> {
+fn websocket_connect() -> Result<WebSocket<MaybeTlsStream<TcpStream>>> {
     let request = build_websocket_request()?;
     let (websocket, _) = tungstenite::connect(request)?;
     Ok(websocket)
 }
 
 #[cfg(feature = "ssl-key-log")]
-fn connect() -> Result<WebSocket<MaybeTlsStream<TcpStream>>> {
+fn websocket_connect() -> Result<WebSocket<MaybeTlsStream<TcpStream>>> {
     let request = build_websocket_request()?;
     let stream = try_tcp_connect(&request)?;
     let connector = build_rustls_connector();
@@ -240,6 +307,19 @@ fn build_rustls_connector() -> Option<tungstenite::Connector> {
     Some(tungstenite::Connector::Rustls(std::sync::Arc::new(
         client_config,
     )))
+}
+
+pub fn audio_synthesizer_connect() -> Result<(AudioSynthesizer, AudioReceiver)> {
+    let websocket = websocket_connect()?;
+    let websocket = Arc::new(Mutex::new(websocket));
+    Ok((
+        AudioSynthesizer(websocket.clone()),
+        AudioReceiver {
+            websocket,
+            turn_start: false,
+            response: false,
+        },
+    ))
 }
 
 fn build_config_message(config: &SpeechConfig) -> Message {
