@@ -1,10 +1,3 @@
-use std::net::TcpStream;
-
-use tungstenite::{
-    client::IntoClientRequest, handshake::client::Request, http::header, stream::MaybeTlsStream,
-    WebSocket,
-};
-
 use crate::{constants, voice::Voice};
 
 pub struct SpeechConfig {
@@ -119,7 +112,10 @@ pub struct SynthesizedAudio {
     pub audio_metadata: Vec<AudioMetadata>,
 }
 
-pub struct MSEdgeTTS(WebSocket<MaybeTlsStream<TcpStream>>);
+type TungsteniteStream =
+    tungstenite::WebSocket<tungstenite::stream::MaybeTlsStream<std::net::TcpStream>>;
+
+pub struct MSEdgeTTS(TungsteniteStream);
 
 impl MSEdgeTTS {
     pub fn connect() -> anyhow::Result<Self> {
@@ -135,42 +131,32 @@ impl MSEdgeTTS {
         let ssml_message = build_ssml_message(text, config);
         self.0.send(config_message)?;
         self.0.send(ssml_message)?;
-        self.0.flush()?;
 
-        let mut audio_payload = Vec::new();
+        let mut audio_bytes = Vec::new();
         let mut audio_metadata = Vec::new();
         let mut turn_start = false;
         let mut response = false;
+        let mut turn_end = false;
         loop {
+            if turn_end {
+                break;
+            }
+
             let message = self.0.read()?;
-            match message {
-                tungstenite::Message::Text(text) => {
-                    if text.contains("audio.metadata") {
-                        if let Some(index) = text.find("\r\n\r\n") {
-                            audio_metadata.extend(AudioMetadata::from_str(&text[index + 4..])?);
-                        }
-                    } else if text.contains("turn.start") {
-                        turn_start = true;
-                    } else if text.contains("response") {
-                        response = true;
-                    } else if text.contains("turn.end") {
-                        break;
-                    } else {
-                        anyhow::bail!("unexpected text message: {}", text)
+            let response = process_message(message, &mut turn_start, &mut response, &mut turn_end)?;
+            if let Some(response) = response {
+                match response {
+                    SynthesizedResponse::AudioBytes(payload) => {
+                        audio_bytes.push(payload);
+                    }
+                    SynthesizedResponse::AudioMetadata(metadata) => {
+                        audio_metadata.extend(metadata);
                     }
                 }
-                tungstenite::Message::Binary(bytes) => {
-                    if turn_start || response {
-                        let header_len = u16::from_be_bytes([bytes[0], bytes[1]]) as usize;
-                        audio_payload.push((bytes, header_len + 2));
-                    }
-                }
-                tungstenite::Message::Close(_) => break,
-                _ => anyhow::bail!("unexpected message: {}", message),
             }
         }
 
-        let audio_bytes = audio_payload
+        let audio_bytes = audio_bytes
             .iter()
             .flat_map(|(bytes, len)| &bytes[*len..])
             .copied()
@@ -184,7 +170,10 @@ impl MSEdgeTTS {
     }
 }
 
-fn build_websocket_request() -> anyhow::Result<Request> {
+fn build_websocket_request() -> anyhow::Result<tungstenite::handshake::client::Request> {
+    use tungstenite::client::IntoClientRequest;
+    use tungstenite::http::header;
+
     let uuid = uuid::Uuid::new_v4().simple().to_string();
     let mut request = format!("{}{}", constants::WSS_URL, uuid).into_client_request()?;
     let headers = request.headers_mut();
@@ -196,16 +185,16 @@ fn build_websocket_request() -> anyhow::Result<Request> {
 }
 
 #[cfg(not(feature = "ssl-key-log"))]
-fn websocket_connect() -> anyhow::Result<WebSocket<MaybeTlsStream<TcpStream>>> {
+fn websocket_connect() -> anyhow::Result<TungsteniteStream> {
     let request = build_websocket_request()?;
     let (websocket, _) = tungstenite::connect(request)?;
     Ok(websocket)
 }
 
 #[cfg(feature = "ssl-key-log")]
-fn websocket_connect() -> anyhow::Result<WebSocket<MaybeTlsStream<TcpStream>>> {
+fn websocket_connect() -> anyhow::Result<TungsteniteStream> {
     let request = build_websocket_request()?;
-    let stream = try_tcp_connect(&request)?;
+    let stream = try_connect(&request)?;
     let connector = build_rustls_connector()?;
     let (websocket, _) =
         tungstenite::client_tls_with_config(request, stream, None, Some(connector))?;
@@ -213,22 +202,17 @@ fn websocket_connect() -> anyhow::Result<WebSocket<MaybeTlsStream<TcpStream>>> {
 }
 
 #[cfg(feature = "ssl-key-log")]
-fn try_tcp_connect(request: &Request) -> anyhow::Result<TcpStream> {
-    use std::net::ToSocketAddrs;
+fn try_connect(
+    request: &tungstenite::handshake::client::Request,
+) -> anyhow::Result<std::net::TcpStream> {
     use tungstenite::error::UrlError;
-    use tungstenite::stream::NoDelay;
     use tungstenite::Error;
 
     let uri = request.uri();
     let host = uri.host().ok_or(Error::Url(UrlError::NoHostName))?;
-    let addrs = (host, 443).to_socket_addrs()?;
-    for addr in addrs {
-        if let Ok(mut stream) = TcpStream::connect(addr) {
-            NoDelay::set_nodelay(&mut stream, true)?;
-            return Ok(stream);
-        }
-    }
-    anyhow::bail!("failed to connect to {}", uri)
+    let stream = std::net::TcpStream::connect((host, 443))?;
+    stream.set_nodelay(true)?;
+    Ok(stream)
 }
 
 #[cfg(feature = "ssl-key-log")]
@@ -273,4 +257,172 @@ fn build_ssml_message(text: &str, config: &SpeechConfig) -> tungstenite::Message
         ssml,
     );
     tungstenite::Message::Text(ssml_message)
+}
+
+enum SynthesizedResponse {
+    AudioBytes((Vec<u8>, usize)),
+    AudioMetadata(Vec<AudioMetadata>),
+}
+
+fn process_message(
+    message: tungstenite::Message,
+    turn_start: &mut bool,
+    response: &mut bool,
+    turn_end: &mut bool,
+) -> anyhow::Result<Option<SynthesizedResponse>> {
+    match message {
+        tungstenite::Message::Text(text) => {
+            if text.contains("audio.metadata") {
+                if let Some(index) = text.find("\r\n\r\n") {
+                    Ok(Some(SynthesizedResponse::AudioMetadata(
+                        AudioMetadata::from_str(&text[index + 4..])?,
+                    )))
+                } else {
+                    Ok(None)
+                }
+            } else if text.contains("turn.start") {
+                *turn_start = true;
+                Ok(None)
+            } else if text.contains("response") {
+                *response = true;
+                Ok(None)
+            } else if text.contains("turn.end") {
+                *turn_end = true;
+                Ok(None)
+            } else {
+                anyhow::bail!("unexpected text message: {}", text)
+            }
+        }
+        tungstenite::Message::Binary(bytes) => {
+            if *turn_start || *response {
+                let header_len = u16::from_be_bytes([bytes[0], bytes[1]]) as usize;
+                Ok(Some(SynthesizedResponse::AudioBytes((
+                    bytes,
+                    header_len + 2,
+                ))))
+            } else {
+                Ok(None)
+            }
+        }
+        tungstenite::Message::Close(_) => {
+            *turn_end = true;
+            Ok(None)
+        }
+        _ => anyhow::bail!("unexpected message: {}", message),
+    }
+}
+
+#[cfg(not(feature = "ssl-key-log"))]
+type AsyncTungsteniteStream =
+    async_tungstenite::WebSocketStream<async_tungstenite::async_std::ConnectStream>;
+#[cfg(feature = "ssl-key-log")]
+type AsyncTungsteniteStream = async_tungstenite::WebSocketStream<
+    async_tungstenite::async_tls::ClientStream<async_net::TcpStream>,
+>;
+
+pub struct MSEdgeTTSAsync(AsyncTungsteniteStream);
+
+impl MSEdgeTTSAsync {
+    pub async fn connect_async() -> anyhow::Result<Self> {
+        Ok(Self(websocket_connect_asnyc().await?))
+    }
+
+    pub async fn synthesize_async(
+        &mut self,
+        text: &str,
+        config: &SpeechConfig,
+    ) -> anyhow::Result<SynthesizedAudio> {
+        use futures_util::{SinkExt, StreamExt};
+
+        let config_message = build_config_message(config);
+        let ssml_message = build_ssml_message(text, config);
+        self.0.send(config_message).await?;
+        self.0.send(ssml_message).await?;
+
+        let mut audio_bytes = Vec::new();
+        let mut audio_metadata = Vec::new();
+        let mut turn_start = false;
+        let mut response = false;
+        let mut turn_end = false;
+        loop {
+            if turn_end {
+                break;
+            }
+
+            if let Some(message) = self.0.next().await {
+                let message = message?;
+                let response =
+                    process_message(message, &mut turn_start, &mut response, &mut turn_end)?;
+                if let Some(response) = response {
+                    match response {
+                        SynthesizedResponse::AudioBytes(payload) => {
+                            audio_bytes.push(payload);
+                        }
+                        SynthesizedResponse::AudioMetadata(metadata) => {
+                            audio_metadata.extend(metadata);
+                        }
+                    }
+                }
+            }
+        }
+
+        let audio_bytes = audio_bytes
+            .iter()
+            .flat_map(|(bytes, len)| &bytes[*len..])
+            .copied()
+            .collect();
+
+        Ok(SynthesizedAudio {
+            audio_format: config.audio_format.clone(),
+            audio_bytes,
+            audio_metadata,
+        })
+    }
+}
+
+#[cfg(not(feature = "ssl-key-log"))]
+async fn websocket_connect_asnyc() -> anyhow::Result<AsyncTungsteniteStream> {
+    let request = build_websocket_request()?;
+    let (websocket, _) = async_tungstenite::async_std::connect_async(request).await?;
+    Ok(websocket)
+}
+
+#[cfg(feature = "ssl-key-log")]
+async fn websocket_connect_asnyc() -> anyhow::Result<AsyncTungsteniteStream> {
+    use async_tungstenite::async_tls::client_async_tls_with_connector;
+
+    let request = build_websocket_request()?;
+    let stream = try_connect_async(&request).await?;
+    let connector = build_async_tls_connector()?;
+    let (websocket, _) = client_async_tls_with_connector(request, stream, Some(connector)).await?;
+    Ok(websocket)
+}
+
+#[cfg(feature = "ssl-key-log")]
+async fn try_connect_async(
+    request: &tungstenite::handshake::client::Request,
+) -> anyhow::Result<async_net::TcpStream> {
+    use tungstenite::error::UrlError;
+    use tungstenite::Error;
+
+    let uri = request.uri();
+    let host = uri.host().ok_or(Error::Url(UrlError::NoHostName))?;
+    let stream = async_net::TcpStream::connect((host, 443)).await?;
+    Ok(stream)
+}
+
+#[cfg(feature = "ssl-key-log")]
+fn build_async_tls_connector() -> anyhow::Result<async_tls::TlsConnector> {
+    let certs: Vec<_> = rustls_native_certs::load_native_certs()?
+        .into_iter()
+        .map(|x| x.to_vec())
+        .collect();
+    let mut root_store = old_rustls::RootCertStore::empty();
+    root_store.add_parsable_certificates(&certs);
+    let mut client_config = old_rustls::ClientConfig::builder()
+        .with_safe_defaults()
+        .with_root_certificates(root_store)
+        .with_no_client_auth();
+    client_config.key_log = std::sync::Arc::new(old_rustls::KeyLogFile::new());
+    Ok(async_tls::TlsConnector::from(client_config))
 }
