@@ -9,6 +9,7 @@ use std::{
         Arc,
     },
     thread::spawn,
+    time::Instant,
 };
 
 fn main() {
@@ -22,6 +23,7 @@ fn main() {
 
             let signal = Arc::new(AtomicBool::new(false));
             let end = signal.clone();
+            let start = Instant::now();
             spawn(move || {
                 sender.send("Hello, World! 你好，世界！", &config).unwrap();
                 println!("synthesizing...1");
@@ -35,7 +37,7 @@ fn main() {
             });
 
             loop {
-                if signal.load(Ordering::Relaxed) && reader.is_idle() {
+                if signal.load(Ordering::Relaxed) && !reader.can_read() {
                     break;
                 }
                 let audio = reader.read().unwrap();
@@ -52,6 +54,7 @@ fn main() {
                     println!("read None");
                 }
             }
+            println!("{:?}", Instant::now() - start);
         }
     }
 }

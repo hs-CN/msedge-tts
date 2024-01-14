@@ -119,6 +119,7 @@ impl MSEdgeTTSClientAsync {
     }
 }
 
+#[derive(Debug)]
 pub struct SynthesizedAudio {
     pub audio_format: String,
     pub audio_bytes: Vec<u8>,
