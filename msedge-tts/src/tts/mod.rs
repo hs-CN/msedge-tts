@@ -116,6 +116,55 @@ impl AudioMetadata {
     }
 }
 
+enum ProcessedMessage {
+    AudioBytes((Vec<u8>, usize)),
+    AudioMetadata(Vec<AudioMetadata>),
+}
+
+fn process_message(
+    message: tungstenite::Message,
+    turn_start: &mut bool,
+    response: &mut bool,
+    turn_end: &mut bool,
+) -> anyhow::Result<Option<ProcessedMessage>> {
+    match message {
+        tungstenite::Message::Text(text) => {
+            if text.contains("audio.metadata") {
+                if let Some(index) = text.find("\r\n\r\n") {
+                    let metadata = AudioMetadata::from_str(&text[index + 4..])?;
+                    Ok(Some(ProcessedMessage::AudioMetadata(metadata)))
+                } else {
+                    Ok(None)
+                }
+            } else if text.contains("turn.start") {
+                *turn_start = true;
+                Ok(None)
+            } else if text.contains("response") {
+                *response = true;
+                Ok(None)
+            } else if text.contains("turn.end") {
+                *turn_end = true;
+                Ok(None)
+            } else {
+                anyhow::bail!("unexpected text message: {}", text)
+            }
+        }
+        tungstenite::Message::Binary(bytes) => {
+            if *turn_start || *response {
+                let header_len = u16::from_be_bytes([bytes[0], bytes[1]]) as usize;
+                Ok(Some(ProcessedMessage::AudioBytes((bytes, header_len + 2))))
+            } else {
+                Ok(None)
+            }
+        }
+        tungstenite::Message::Close(_) => {
+            *turn_end = true;
+            Ok(None)
+        }
+        _ => anyhow::bail!("unexpected message: {}", message),
+    }
+}
+
 fn build_websocket_request() -> anyhow::Result<tungstenite::handshake::client::Request> {
     use super::constants;
     use tungstenite::client::IntoClientRequest;

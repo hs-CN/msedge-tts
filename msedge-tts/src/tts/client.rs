@@ -1,6 +1,7 @@
 use super::{
-    build_config_message, build_ssml_message, websocket_connect, websocket_connect_asnyc,
-    AudioMetadata, SpeechConfig, WebSocketStream, WebSocketStreamAsync,
+    build_config_message, build_ssml_message, process_message, websocket_connect,
+    websocket_connect_asnyc, AudioMetadata, ProcessedMessage, SpeechConfig, WebSocketStream,
+    WebSocketStreamAsync,
 };
 
 pub struct MSEdgeTTSClient(WebSocketStream);
@@ -31,13 +32,13 @@ impl MSEdgeTTSClient {
             }
 
             let message = self.0.read()?;
-            let response = process_message(message, &mut turn_start, &mut response, &mut turn_end)?;
-            if let Some(response) = response {
-                match response {
-                    SynthesizedResponse::AudioBytes(payload) => {
+            let message = process_message(message, &mut turn_start, &mut response, &mut turn_end)?;
+            if let Some(message) = message {
+                match message {
+                    ProcessedMessage::AudioBytes(payload) => {
                         audio_bytes.push(payload);
                     }
-                    SynthesizedResponse::AudioMetadata(metadata) => {
+                    ProcessedMessage::AudioMetadata(metadata) => {
                         audio_metadata.extend(metadata);
                     }
                 }
@@ -46,7 +47,7 @@ impl MSEdgeTTSClient {
 
         let audio_bytes = audio_bytes
             .iter()
-            .flat_map(|(bytes, len)| &bytes[*len..])
+            .flat_map(|(bytes, index)| &bytes[*index..])
             .copied()
             .collect();
 
@@ -93,10 +94,10 @@ impl MSEdgeTTSClientAsync {
                     process_message(message, &mut turn_start, &mut response, &mut turn_end)?;
                 if let Some(response) = response {
                     match response {
-                        SynthesizedResponse::AudioBytes(payload) => {
+                        ProcessedMessage::AudioBytes(payload) => {
                             audio_bytes.push(payload);
                         }
-                        SynthesizedResponse::AudioMetadata(metadata) => {
+                        ProcessedMessage::AudioMetadata(metadata) => {
                             audio_metadata.extend(metadata);
                         }
                     }
@@ -106,7 +107,7 @@ impl MSEdgeTTSClientAsync {
 
         let audio_bytes = audio_bytes
             .iter()
-            .flat_map(|(bytes, len)| &bytes[*len..])
+            .flat_map(|(bytes, index)| &bytes[*index..])
             .copied()
             .collect();
 
@@ -122,57 +123,4 @@ pub struct SynthesizedAudio {
     pub audio_format: String,
     pub audio_bytes: Vec<u8>,
     pub audio_metadata: Vec<AudioMetadata>,
-}
-
-enum SynthesizedResponse {
-    AudioBytes((Vec<u8>, usize)),
-    AudioMetadata(Vec<AudioMetadata>),
-}
-
-fn process_message(
-    message: tungstenite::Message,
-    turn_start: &mut bool,
-    response: &mut bool,
-    turn_end: &mut bool,
-) -> anyhow::Result<Option<SynthesizedResponse>> {
-    match message {
-        tungstenite::Message::Text(text) => {
-            if text.contains("audio.metadata") {
-                if let Some(index) = text.find("\r\n\r\n") {
-                    Ok(Some(SynthesizedResponse::AudioMetadata(
-                        AudioMetadata::from_str(&text[index + 4..])?,
-                    )))
-                } else {
-                    Ok(None)
-                }
-            } else if text.contains("turn.start") {
-                *turn_start = true;
-                Ok(None)
-            } else if text.contains("response") {
-                *response = true;
-                Ok(None)
-            } else if text.contains("turn.end") {
-                *turn_end = true;
-                Ok(None)
-            } else {
-                anyhow::bail!("unexpected text message: {}", text)
-            }
-        }
-        tungstenite::Message::Binary(bytes) => {
-            if *turn_start || *response {
-                let header_len = u16::from_be_bytes([bytes[0], bytes[1]]) as usize;
-                Ok(Some(SynthesizedResponse::AudioBytes((
-                    bytes,
-                    header_len + 2,
-                ))))
-            } else {
-                Ok(None)
-            }
-        }
-        tungstenite::Message::Close(_) => {
-            *turn_end = true;
-            Ok(None)
-        }
-        _ => anyhow::bail!("unexpected message: {}", message),
-    }
 }

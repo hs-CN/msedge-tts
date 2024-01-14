@@ -6,9 +6,10 @@ fn main() {
     for voice in &voices {
         if voice.name.contains("YunyangNeural") {
             println!("choose '{}' to synthesize...", voice.name);
+            let config = SpeechConfig::from(voice);
             let mut tts = MSEdgeTTSClient::connect().unwrap();
             let audio = tts
-                .synthesize("Hello, World! 你好，世界！", &SpeechConfig::from(voice))
+                .synthesize("Hello, World! 你好，世界！", &config)
                 .unwrap();
             println!("{:?}", audio.audio_metadata);
             break;
