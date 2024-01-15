@@ -1,7 +1,7 @@
 use super::{
-    build_config_message, build_ssml_message, process_message, tls::WebSocketStreamAsync,
-    websocket_connect, websocket_connect_asnyc, AudioMetadata, ProcessedMessage, SpeechConfig,
-    WebSocketStream,
+    super::error::Result, build_config_message, build_ssml_message, process_message,
+    tls::WebSocketStreamAsync, websocket_connect, websocket_connect_asnyc, AudioMetadata,
+    ProcessedMessage, SpeechConfig, WebSocketStream,
 };
 use futures_util::{
     stream::{SplitSink, SplitStream},
@@ -31,7 +31,7 @@ impl From<ProcessedMessage> for SynthesizedResponse {
     }
 }
 
-pub fn msedge_tts_split() -> anyhow::Result<(Sender, Reader)> {
+pub fn msedge_tts_split() -> Result<(Sender, Reader)> {
     let websocket = Arc::new(Mutex::new(websocket_connect()?));
     let can_read_cvar = Arc::new((Mutex::new(false), Condvar::new()));
     let sender = Sender {
@@ -54,7 +54,7 @@ pub struct Sender {
 }
 
 impl Sender {
-    pub fn send(&mut self, text: &str, config: &SpeechConfig) -> anyhow::Result<()> {
+    pub fn send(&mut self, text: &str, config: &SpeechConfig) -> Result<()> {
         let (can_read, cvar) = &*self.can_read_cvar;
         let mut can_read = can_read.lock().unwrap();
         while *can_read {
@@ -87,7 +87,7 @@ pub struct Reader {
 }
 
 impl Reader {
-    pub fn read(&mut self) -> anyhow::Result<Option<SynthesizedResponse>> {
+    pub fn read(&mut self) -> Result<Option<SynthesizedResponse>> {
         let (can_read, cvar) = &*self.can_read_cvar;
         let mut can_read = can_read.lock().unwrap();
         while !*can_read {
@@ -119,7 +119,7 @@ impl Reader {
     }
 }
 
-pub async fn msedge_tts_split_asnyc() -> anyhow::Result<(SenderAsync, ReaderAsync)> {
+pub async fn msedge_tts_split_asnyc() -> Result<(SenderAsync, ReaderAsync)> {
     let websocket = websocket_connect_asnyc().await?;
     let (sink, stream) = websocket.split();
     let can_read = Arc::new(async_lock::Mutex::new(false));
@@ -144,7 +144,7 @@ pub struct SenderAsync {
 }
 
 impl SenderAsync {
-    pub async fn send(&mut self, text: &str, config: &SpeechConfig) -> anyhow::Result<()> {
+    pub async fn send(&mut self, text: &str, config: &SpeechConfig) -> Result<()> {
         while !self.can_send().await {
             async_io::Timer::after(Duration::from_millis(1)).await;
         }
@@ -171,7 +171,7 @@ pub struct ReaderAsync {
 }
 
 impl ReaderAsync {
-    pub async fn read(&mut self) -> anyhow::Result<Option<SynthesizedResponse>> {
+    pub async fn read(&mut self) -> Result<Option<SynthesizedResponse>> {
         while !self.can_read().await {
             async_io::Timer::after(Duration::from_millis(1)).await;
         }

@@ -1,4 +1,4 @@
-use crate::constants;
+use crate::{constants, error::Result};
 use isahc::{AsyncReadResponseExt, ReadResponseExt, RequestExt};
 
 #[derive(Debug, serde::Deserialize)]
@@ -50,12 +50,20 @@ impl From<&str> for Voice {
     }
 }
 
-pub fn get_voices_list() -> anyhow::Result<Vec<Voice>> {
-    Ok(build_request()?.send()?.json()?)
+pub fn get_voices_list() -> Result<Vec<Voice>> {
+    Ok(build_request()
+        .map_err(|err| isahc::Error::from(err))?
+        .send()?
+        .json()?)
 }
 
-pub async fn get_voices_list_async() -> anyhow::Result<Vec<Voice>> {
-    Ok(build_request()?.send_async().await?.json().await?)
+pub async fn get_voices_list_async() -> Result<Vec<Voice>> {
+    Ok(build_request()
+        .map_err(|err| isahc::Error::from(err))?
+        .send_async()
+        .await?
+        .json()
+        .await?)
 }
 
 fn build_request() -> std::result::Result<isahc::Request<()>, isahc::http::Error> {

@@ -3,19 +3,16 @@ use super::{
     websocket_connect_asnyc, AudioMetadata, ProcessedMessage, SpeechConfig, WebSocketStream,
     WebSocketStreamAsync,
 };
+use crate::error::Result;
 
 pub struct MSEdgeTTSClient(WebSocketStream);
 
 impl MSEdgeTTSClient {
-    pub fn connect() -> anyhow::Result<Self> {
+    pub fn connect() -> Result<Self> {
         Ok(Self(websocket_connect()?))
     }
 
-    pub fn synthesize(
-        &mut self,
-        text: &str,
-        config: &SpeechConfig,
-    ) -> anyhow::Result<SynthesizedAudio> {
+    pub fn synthesize(&mut self, text: &str, config: &SpeechConfig) -> Result<SynthesizedAudio> {
         let config_message = build_config_message(config);
         let ssml_message = build_ssml_message(text, config);
         self.0.send(config_message)?;
@@ -62,7 +59,7 @@ impl MSEdgeTTSClient {
 pub struct MSEdgeTTSClientAsync(WebSocketStreamAsync);
 
 impl MSEdgeTTSClientAsync {
-    pub async fn connect_async() -> anyhow::Result<Self> {
+    pub async fn connect_async() -> Result<Self> {
         Ok(Self(websocket_connect_asnyc().await?))
     }
 
@@ -70,7 +67,7 @@ impl MSEdgeTTSClientAsync {
         &mut self,
         text: &str,
         config: &SpeechConfig,
-    ) -> anyhow::Result<SynthesizedAudio> {
+    ) -> Result<SynthesizedAudio> {
         use futures_util::{SinkExt, StreamExt};
 
         let config_message = build_config_message(config);

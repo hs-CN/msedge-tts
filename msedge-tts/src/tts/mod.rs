@@ -8,6 +8,7 @@ mod tls;
 #[path = "rustls_tls.rs"]
 mod tls;
 
+use crate::error::{Error, Result};
 use tls::{websocket_connect, websocket_connect_asnyc, WebSocketStream, WebSocketStreamAsync};
 
 #[derive(Debug)]
@@ -87,7 +88,7 @@ pub struct AudioMetadata {
 }
 
 impl AudioMetadata {
-    fn from_str(text: &str) -> anyhow::Result<Vec<Self>> {
+    fn from_str(text: &str) -> Result<Vec<Self>> {
         let value: serde_json::Value = serde_json::from_str(text)?;
         if let Some(items) = value["Metadata"].as_array() {
             let mut audio_metadata = Vec::new();
@@ -111,7 +112,10 @@ impl AudioMetadata {
             }
             Ok(audio_metadata)
         } else {
-            anyhow::bail!("unexpected json text: {:#?}", value)
+            Err(Error::UnexpectedMessage(format!(
+                "unexpected json text: {}",
+                text
+            )))
         }
     }
 }
@@ -126,7 +130,7 @@ fn process_message(
     turn_start: &mut bool,
     response: &mut bool,
     turn_end: &mut bool,
-) -> anyhow::Result<Option<ProcessedMessage>> {
+) -> Result<Option<ProcessedMessage>> {
     match message {
         tungstenite::Message::Text(text) => {
             if text.contains("audio.metadata") {
@@ -146,7 +150,10 @@ fn process_message(
                 *turn_end = true;
                 Ok(None)
             } else {
-                anyhow::bail!("unexpected text message: {}", text)
+                Err(Error::UnexpectedMessage(format!(
+                    "unexpected text message: {}",
+                    text
+                )))
             }
         }
         tungstenite::Message::Binary(bytes) => {
@@ -161,22 +168,46 @@ fn process_message(
             *turn_end = true;
             Ok(None)
         }
-        _ => anyhow::bail!("unexpected message: {}", message),
+        _ => Err(Error::UnexpectedMessage(format!(
+            "unexpected message: {}",
+            message
+        ))),
     }
 }
 
-fn build_websocket_request() -> anyhow::Result<tungstenite::handshake::client::Request> {
+fn build_websocket_request() -> Result<tungstenite::handshake::client::Request> {
     use super::constants;
     use tungstenite::client::IntoClientRequest;
+    use tungstenite::http;
     use tungstenite::http::header;
 
     let uuid = uuid::Uuid::new_v4().simple().to_string();
     let mut request = format!("{}{}", constants::WSS_URL, uuid).into_client_request()?;
     let headers = request.headers_mut();
-    headers.insert(header::PRAGMA, "no-cache".parse()?);
-    headers.insert(header::CACHE_CONTROL, "no-cache".parse()?);
-    headers.insert(header::USER_AGENT, constants::USER_AGENT.parse()?);
-    headers.insert(header::ORIGIN, constants::ORIGIN.parse()?);
+    headers.insert(
+        header::PRAGMA,
+        "no-cache"
+            .parse()
+            .map_err(|err| tungstenite::Error::from(http::Error::from(err)))?,
+    );
+    headers.insert(
+        header::CACHE_CONTROL,
+        "no-cache"
+            .parse()
+            .map_err(|err| tungstenite::Error::from(http::Error::from(err)))?,
+    );
+    headers.insert(
+        header::USER_AGENT,
+        constants::USER_AGENT
+            .parse()
+            .map_err(|err| tungstenite::Error::from(http::Error::from(err)))?,
+    );
+    headers.insert(
+        header::ORIGIN,
+        constants::ORIGIN
+            .parse()
+            .map_err(|err| tungstenite::Error::from(http::Error::from(err)))?,
+    );
     Ok(request)
 }
 
