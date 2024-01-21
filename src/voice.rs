@@ -1,7 +1,7 @@
 use crate::{constants, error::Result};
 use isahc::{AsyncReadResponseExt, ReadResponseExt, RequestExt};
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct VoiceTag {
     #[serde(rename = "ContentCategories")]
     pub content_categories: Option<Vec<String>>,
@@ -9,7 +9,7 @@ pub struct VoiceTag {
     pub voice_personalities: Option<Vec<String>>,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct Voice {
     #[serde(rename = "Name")]
     pub name: String,
