@@ -110,7 +110,7 @@ impl Reader {
             cvar.notify_one();
         }
 
-        Ok(message.and_then(|message| Some(message.into())))
+        Ok(message.map(|message| message.into()))
     }
 
     pub fn can_read(&self) -> bool {
@@ -193,7 +193,7 @@ impl ReaderAsync {
                 *self.can_read.lock().await = false;
             }
 
-            Ok(message.and_then(|message| Some(message.into())))
+            Ok(message.map(|message| message.into()))
         } else {
             Ok(None)
         }

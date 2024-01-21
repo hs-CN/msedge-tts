@@ -52,14 +52,14 @@ impl From<&str> for Voice {
 
 pub fn get_voices_list() -> Result<Vec<Voice>> {
     Ok(build_request()
-        .map_err(|err| isahc::Error::from(err))?
+        .map_err(isahc::Error::from)?
         .send()?
         .json()?)
 }
 
 pub async fn get_voices_list_async() -> Result<Vec<Voice>> {
     Ok(build_request()
-        .map_err(|err| isahc::Error::from(err))?
+        .map_err(isahc::Error::from)?
         .send_async()
         .await?
         .json()

@@ -30,18 +30,15 @@ fn try_connect(request: &tungstenite::handshake::client::Request) -> Result<std:
 
     let uri = request.uri();
     let host = uri.host().ok_or(Error::Url(UrlError::NoHostName))?;
-    let stream =
-        std::net::TcpStream::connect((host, 443)).map_err(|err| tungstenite::Error::from(err))?;
-    stream
-        .set_nodelay(true)
-        .map_err(|err| tungstenite::Error::from(err))?;
+    let stream = std::net::TcpStream::connect((host, 443)).map_err(tungstenite::Error::from)?;
+    stream.set_nodelay(true).map_err(tungstenite::Error::from)?;
     Ok(stream)
 }
 
 fn build_rustls_connector() -> Result<tungstenite::Connector> {
     let mut root_store = rustls::RootCertStore::empty();
     root_store.add_parsable_certificates(
-        rustls_native_certs::load_native_certs().map_err(|err| tungstenite::Error::from(err))?,
+        rustls_native_certs::load_native_certs().map_err(tungstenite::Error::from)?,
     );
     let mut client_config = rustls::ClientConfig::builder()
         .with_root_certificates(root_store)
@@ -76,13 +73,13 @@ async fn try_connect_async(
     let host = uri.host().ok_or(Error::Url(UrlError::NoHostName))?;
     let stream = async_net::TcpStream::connect((host, 443))
         .await
-        .map_err(|err| tungstenite::Error::from(err))?;
+        .map_err(tungstenite::Error::from)?;
     Ok(stream)
 }
 
 fn build_async_tls_connector() -> Result<async_tls::TlsConnector> {
     let certs: Vec<_> = rustls_native_certs::load_native_certs()
-        .map_err(|err| tungstenite::Error::from(err))?
+        .map_err(tungstenite::Error::from)?
         .into_iter()
         .map(|x| x.to_vec())
         .collect();
