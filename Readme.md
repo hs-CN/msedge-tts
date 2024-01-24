@@ -206,4 +206,4 @@ You can convert `Voice` to `SpeechConfig` simply. For example:
     }
     ```
 
-all `examples`(https://github.com/hs-CN/msedge-tts/tree/master/examples).
+all [examples](https://github.com/hs-CN/msedge-tts/tree/master/examples).
