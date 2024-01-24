@@ -5,11 +5,11 @@ You can use it to synthesize text to speech with many voices MS provided.
 + `native-tls`: use native tls for https and websocket. Default
 + `ssl-key-log`: enbale `SSLKEYLOGFILE` log for some traffic analysis tools like wireshark. Debug Only
 # How to use
-1. You need get a [SpeechConfig](tts::SpeechConfig) to configure the voice of text to speech.  
-This library has a [get_voices_list](voice::get_voices_list) function to get all available voices.
-You can also use [get_voices_list_async](voice::get_voices_list_async) function to get all available voices asynchronously.
-[Voice](voice::Voice) implemented [serde::Serialize] and [serde::Deserialize].  
-You can convert [Voice](voice::Voice) to [SpeechConfig](tts::SpeechConfig) simply. For example:
+1. You need get a `SpeechConfig` to configure the voice of text to speech.  
+This library has a `get_voices_list` function to get all available voices.
+You can also use `get_voices_list_async` function to get all available voices asynchronously.
+`Voice` implemented `serde::Serialize` and `serde::Deserialize`.  
+You can convert `Voice` to `SpeechConfig` simply. For example:
     ```rust
     use msedge_tts::voice::get_voices_list;
     use msedge_tts::tts::SpeechConfig;
@@ -19,12 +19,12 @@ You can convert [Voice](voice::Voice) to [SpeechConfig](tts::SpeechConfig) simpl
         let speechConfig = SpeechConfig::from(&voices[0]);
     }
     ```
-    You can also create [SpeechConfig](tts::SpeechConfig) by yourself. Make sure you know the right **voice name** and **audio format**.
+    You can also create `SpeechConfig` by yourself. Make sure you know the right **voice name** and **audio format**.
 2. Create a synthesis Client or Stream. Both of them have sync and async version. Example below step 3.
 3. Synthesize text to speech.
     ### Sync Client
-    Call client function [synthesize](tts::client::MSEdgeTTSClient::synthesize) to synthesize text to speech. This function return Type [SynthesizedAudio](tts::client::SynthesizedAudio),
-    you can get [audio_bytes](tts::client::SynthesizedAudio::audio_bytes) and [audio_metadata](tts::client::SynthesizedAudio::audio_metadata).
+    Call client function `synthesize` to synthesize text to speech. This function return Type `SynthesizedAudio`,
+    you can get `audio_bytes` and `audio_metadata`.
     ```rust
     use msedge_tts::{tts::client::MSEdgeTTSClient, tts::SpeechConfig, voice::get_voices_list};
     
@@ -43,8 +43,8 @@ You can convert [Voice](voice::Voice) to [SpeechConfig](tts::SpeechConfig) simpl
     }
     ```
     ### Async Client
-    Call client function [synthesize_async](tts::client::MSEdgeTTSClientAsync::synthesize_async) to synthesize text to speech. This function return Type [SynthesizedAudio](tts::client::SynthesizedAudio),
-    you can get [audio_bytes](tts::client::SynthesizedAudio::audio_bytes) and [audio_metadata](tts::client::SynthesizedAudio::audio_metadata).
+    Call client function `synthesize_async` to synthesize text to speech. This function return Type `SynthesizedAudio`,
+    you can get `audio_bytes` and `audio_metadata`.
     ```rust
     use msedge_tts::{tts::client::MSEdgeTTSClientAsync, tts::SpeechConfig, voice::get_voices_list_async};
     
@@ -66,11 +66,11 @@ You can convert [Voice](voice::Voice) to [SpeechConfig](tts::SpeechConfig) simpl
     }
     ```
     ### Sync Stream
-    Call Sender Stream function [send](tts::stream::Sender::send) to synthesize text to speech. Call Reader Stream function [read](tts::stream::Reader::read) to get data.  
-    [read](tts::stream::Reader::read) return [Option\<SynthesizedResponse\>](tts::stream::SynthesizedResponse), the response may be [AudioBytes](tts::stream::SynthesizedResponse::AudioBytes)
-    or [AudioMetadata](tts::stream::SynthesizedResponse::AudioMetadata) or None. This is because the **MSEdge Read aloud** API returns multiple data segment and metadata and other information sequentially.  
-    **Caution**: One [send](tts::stream::Sender::send) corresponds to multiple [read](tts::stream::Reader::read). Next [send](tts::stream::Sender::send) call will block until there no data to read.
-    [read](tts::stream::Reader::read) will block before you call a [send](tts::stream::Sender::send).
+    Call Sender Stream function `send` to synthesize text to speech. Call Reader Stream function `read` to get data.  
+    `read` return `Option<SynthesizedResponse>`, the response may be `AudioBytes`
+    or `AudioMetadata` or None. This is because the **MSEdge Read aloud** API returns multiple data segment and metadata and other information sequentially.  
+    **Caution**: One `send` corresponds to multiple `read` Next `send` call will block until there no data to read.
+    `read` will block before you call a `send`.
     ```rust
     use msedge_tts::{
         tts::stream::{msedge_tts_split, SynthesizedResponse},
@@ -129,9 +129,9 @@ You can convert [Voice](voice::Voice) to [SpeechConfig](tts::SpeechConfig) simpl
     }
     ```
     ### Async Stream
-    Call Sender Async function [send](tts::stream::SenderAsync::send) to synthesize text to speech. Call Reader Async function [read](tts::stream::ReaderAsync::read) to get data.
-    [read](tts::stream::ReaderAsync::read) return [Option\<SynthesizedResponse\>](tts::stream::SynthesizedResponse) as above.
-    [send](tts::stream::SenderAsync::send) and [read](tts::stream::ReaderAsync::read) block as above.
+    Call Sender Async function `send` to synthesize text to speech. Call Reader Async function `read`to get data.
+    `read` return `Option<SynthesizedResponse>` as above.
+    `send` and `read` block as above.
     ```rust
     use msedge_tts::{
         tts::{
@@ -206,4 +206,4 @@ You can convert [Voice](voice::Voice) to [SpeechConfig](tts::SpeechConfig) simpl
     }
     ```
 
-all [examples](https://github.com/hs-CN/msedge-tts/tree/master/examples).
+all `examples`(https://github.com/hs-CN/msedge-tts/tree/master/examples).
