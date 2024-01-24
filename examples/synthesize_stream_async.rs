@@ -1,6 +1,6 @@
 use msedge_tts::{
     tts::{
-        stream::{msedge_tts_split_asnyc, SynthesizedResponse},
+        stream::{msedge_tts_split_async, SynthesizedResponse},
         SpeechConfig,
     },
     voice::get_voices_list_async,
@@ -21,7 +21,7 @@ fn main() {
             if voice.name.contains("YunyangNeural") {
                 println!("choose '{}' to synthesize...", voice.name);
                 let config = SpeechConfig::from(voice);
-                let (mut sender, mut reader) = msedge_tts_split_asnyc().await.unwrap();
+                let (mut sender, mut reader) = msedge_tts_split_async().await.unwrap();
 
                 let signal = Arc::new(AtomicBool::new(false));
                 let end = signal.clone();

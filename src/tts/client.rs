@@ -1,3 +1,5 @@
+//! Synthesis Client
+
 use super::{
     build_config_message, build_ssml_message, process_message, websocket_connect,
     websocket_connect_asnyc, AudioMetadata, ProcessedMessage, SpeechConfig, WebSocketStream,
@@ -5,13 +7,16 @@ use super::{
 };
 use crate::error::Result;
 
+/// Sync Client
 pub struct MSEdgeTTSClient(WebSocketStream);
 
 impl MSEdgeTTSClient {
+    /// Create a new sync Client
     pub fn connect() -> Result<Self> {
         Ok(Self(websocket_connect()?))
     }
 
+    /// Synthesize text to speech with a [SpeechConfig] synchronously
     pub fn synthesize(&mut self, text: &str, config: &SpeechConfig) -> Result<SynthesizedAudio> {
         let config_message = build_config_message(config);
         let ssml_message = build_ssml_message(text, config);
@@ -56,13 +61,16 @@ impl MSEdgeTTSClient {
     }
 }
 
+/// Async Client
 pub struct MSEdgeTTSClientAsync(WebSocketStreamAsync);
 
 impl MSEdgeTTSClientAsync {
+    /// Create a new async Client
     pub async fn connect_async() -> Result<Self> {
         Ok(Self(websocket_connect_asnyc().await?))
     }
 
+    /// Synthesize text to speech with a [SpeechConfig] asynchronously
     pub async fn synthesize_async(
         &mut self,
         text: &str,
@@ -116,6 +124,7 @@ impl MSEdgeTTSClientAsync {
     }
 }
 
+/// Synthesized Audio and Metadata
 #[derive(Debug)]
 pub struct SynthesizedAudio {
     pub audio_format: String,

@@ -1,3 +1,5 @@
+//! Client and Stream, SpeechConfig, Response Type.
+
 pub mod client;
 pub mod stream;
 
@@ -11,6 +13,7 @@ mod tls;
 use crate::error::{Error, Result};
 use tls::{websocket_connect, websocket_connect_asnyc, WebSocketStream, WebSocketStreamAsync};
 
+/// Synthesis Config
 #[derive(Debug)]
 pub struct SpeechConfig {
     pub voice_name: String,
@@ -77,6 +80,7 @@ impl From<&super::voice::Voice> for SpeechConfig {
     }
 }
 
+/// Audio Metadata
 #[derive(Debug)]
 pub struct AudioMetadata {
     pub metadata_type: Option<String>,

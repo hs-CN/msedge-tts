@@ -1,6 +1,12 @@
+//! Voice Type and Get function
+//!
+//! This library has a [get_voices_list] function to get all available voices.
+//! You can also use [get_voices_list_async] function to get all available voices asynchronously.
+
 use crate::{constants, error::Result};
 use isahc::{AsyncReadResponseExt, ReadResponseExt, RequestExt};
 
+/// Voice category tags and personalities tags
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct VoiceTag {
     #[serde(rename = "ContentCategories")]
@@ -9,6 +15,7 @@ pub struct VoiceTag {
     pub voice_personalities: Option<Vec<String>>,
 }
 
+/// Voice get from MS Edge Read aloud API.
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct Voice {
     #[serde(rename = "Name")]
@@ -50,6 +57,7 @@ impl From<&str> for Voice {
     }
 }
 
+/// Get all available voices
 pub fn get_voices_list() -> Result<Vec<Voice>> {
     Ok(build_request()
         .map_err(isahc::Error::from)?
@@ -57,6 +65,7 @@ pub fn get_voices_list() -> Result<Vec<Voice>> {
         .json()?)
 }
 
+/// Get all available voices asynchronously
 pub async fn get_voices_list_async() -> Result<Vec<Voice>> {
     Ok(build_request()
         .map_err(isahc::Error::from)?
