@@ -69,7 +69,7 @@ You can convert `Voice` to `SpeechConfig` simply. For example:
     Call Sender Stream function `send` to synthesize text to speech. Call Reader Stream function `read` to get data.  
     `read` return `Option<SynthesizedResponse>`, the response may be `AudioBytes`
     or `AudioMetadata` or None. This is because the **MSEdge Read aloud** API returns multiple data segment and metadata and other information sequentially.  
-    **Caution**: One `send` corresponds to multiple `read` Next `send` call will block until there no data to read.
+    **Caution**: One `send` corresponds to multiple `read`. Next `send` call will block until there no data to read.
     `read` will block before you call a `send`.
     ```rust
     use msedge_tts::{
