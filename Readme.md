@@ -6,10 +6,10 @@ You can use it to synthesize text to speech with many voices MS provided.
 + `ssl-key-log`: enbale `SSLKEYLOGFILE` log for some traffic analysis tools like wireshark. Debug Only
 # How to use
 1. You need get a `SpeechConfig` to configure the voice of text to speech.  
-This library has a `get_voices_list` function to get all available voices.
-You can also use `get_voices_list_async` function to get all available voices asynchronously.
-`Voice` implemented `serde::Serialize` and `serde::Deserialize`.  
-You can convert `Voice` to `SpeechConfig` simply. For example:
+You can convert `Voice` to `SpeechConfig` simply.  
+Use `get_voices_list` function to get all available voices.
+You can also use `get_voices_list_async` function to get all available voices asynchronously.`Voice` implemented `serde::Serialize` and `serde::Deserialize`.  
+For example:
     ```rust
     use msedge_tts::voice::get_voices_list;
     use msedge_tts::tts::SpeechConfig;

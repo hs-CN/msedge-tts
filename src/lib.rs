@@ -7,10 +7,11 @@
 //!
 //! # How to use
 //! 1. You need get a [SpeechConfig](tts::SpeechConfig) to configure the voice of text to speech.  
-//! This library has a [get_voices_list](voice::get_voices_list) function to get all available voices.
-//! You can also use [get_voices_list_async](voice::get_voices_list_async) function to get all available voices asynchronously.
+//! You can convert [Voice](voice::Voice) to [SpeechConfig](tts::SpeechConfig) simply.  
+//! Use [get_voices_list](voice) function to get all available voices.
+//! You can also use [get_voices_list_async](voice) function to get all available voices asynchronously.
 //! [Voice](voice::Voice) implemented [serde::Serialize] and [serde::Deserialize].  
-//! You can convert [Voice](voice::Voice) to [SpeechConfig](tts::SpeechConfig) simply. For example:
+//! For example:
 //!     ```rust
 //!     use msedge_tts::voice::get_voices_list;
 //!     use msedge_tts::tts::SpeechConfig;
