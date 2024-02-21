@@ -78,13 +78,10 @@ async fn try_connect_async(
 }
 
 fn build_async_tls_connector() -> Result<async_tls::TlsConnector> {
-    let certs: Vec<_> = rustls_native_certs::load_native_certs()
-        .map_err(tungstenite::Error::from)?
-        .into_iter()
-        .map(|x| x.to_vec())
-        .collect();
     let mut root_store = old_rustls::RootCertStore::empty();
-    root_store.add_parsable_certificates(&certs);
+    root_store.add_parsable_certificates(
+        &rustls_native_certs::load_native_certs().map_err(tungstenite::Error::from)?,
+    );
     let mut client_config = old_rustls::ClientConfig::builder()
         .with_safe_defaults()
         .with_root_certificates(root_store)
