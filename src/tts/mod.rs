@@ -1,4 +1,5 @@
 //! Client and Stream, SpeechConfig, Response Type.
+mod proxy;
 
 pub mod client;
 pub mod stream;
@@ -11,7 +12,6 @@ mod tls;
 mod tls;
 
 use crate::error::{Error, Result};
-use tls::{websocket_connect, websocket_connect_asnyc, WebSocketStream, WebSocketStreamAsync};
 
 /// Synthesis Config
 #[derive(Debug)]
@@ -182,7 +182,6 @@ fn process_message(
 fn build_websocket_request() -> Result<tungstenite::handshake::client::Request> {
     use super::constants;
     use tungstenite::client::IntoClientRequest;
-    use tungstenite::http;
     use tungstenite::http::header;
 
     let uuid = uuid::Uuid::new_v4().simple().to_string();

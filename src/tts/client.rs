@@ -1,21 +1,39 @@
 //! Synthesis Client
 
 use super::{
-    build_config_message, build_ssml_message, process_message, websocket_connect,
-    websocket_connect_asnyc, AudioMetadata, ProcessedMessage, SpeechConfig, WebSocketStream,
-    WebSocketStreamAsync,
+    build_config_message, build_ssml_message, process_message,
+    proxy::ProxyStream,
+    tls::{
+        websocket_connect, websocket_connect_async, websocket_connect_proxy,
+        websocket_connect_proxy_async, WebSocketStream, WebSocketStreamAsync,
+    },
+    AudioMetadata, ProcessedMessage, SpeechConfig,
 };
 use crate::error::Result;
+use std::io::{Read, Write};
 
 /// Sync Client
-pub struct MSEdgeTTSClient(WebSocketStream);
+pub struct MSEdgeTTSClient<T: Read + Write>(WebSocketStream<T>);
 
-impl MSEdgeTTSClient {
+impl MSEdgeTTSClient<std::net::TcpStream> {
     /// Create a new sync Client
     pub fn connect() -> Result<Self> {
         Ok(Self(websocket_connect()?))
     }
+}
 
+impl MSEdgeTTSClient<ProxyStream> {
+    /// Create a new sync Client with proxy
+    pub fn connect_proxy(
+        proxy: http::Uri,
+        username: Option<&str>,
+        password: Option<&str>,
+    ) -> Result<Self> {
+        Ok(Self(websocket_connect_proxy(proxy, username, password)?))
+    }
+}
+
+impl<T: Read + Write> MSEdgeTTSClient<T> {
     /// Synthesize text to speech with a [SpeechConfig] synchronously
     pub fn synthesize(&mut self, text: &str, config: &SpeechConfig) -> Result<SynthesizedAudio> {
         let config_message = build_config_message(config);
@@ -67,7 +85,18 @@ pub struct MSEdgeTTSClientAsync(WebSocketStreamAsync);
 impl MSEdgeTTSClientAsync {
     /// Create a new async Client
     pub async fn connect_async() -> Result<Self> {
-        Ok(Self(websocket_connect_asnyc().await?))
+        Ok(Self(websocket_connect_async().await?))
+    }
+
+    /// Create a new async Client with proxy
+    pub async fn connect_proxy_async(
+        proxy: http::Uri,
+        username: Option<&str>,
+        password: Option<&str>,
+    ) -> Result<Self> {
+        Ok(Self(
+            websocket_connect_proxy_async(proxy, username, password).await?,
+        ))
     }
 
     /// Synthesize text to speech with a [SpeechConfig] asynchronously
