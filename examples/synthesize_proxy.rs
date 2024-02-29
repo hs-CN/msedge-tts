@@ -1,5 +1,8 @@
 use msedge_tts::{tts::client::MSEdgeTTSClient, tts::SpeechConfig, voice::get_voices_list};
-use std::time::Instant;
+use std::{
+    io::{Read, Write},
+    time::Instant,
+};
 
 fn main() {
     println!("get voices list...");
@@ -8,19 +11,31 @@ fn main() {
         if voice.name.contains("YunyangNeural") {
             println!("choose '{}' to synthesize...", voice.name);
             let config = SpeechConfig::from(voice);
-            let mut tts = MSEdgeTTSClient::connect_proxy(
+            let tts = MSEdgeTTSClient::connect_proxy(
                 "http://localhost:10809".parse().unwrap(),
-                Some("hello"),
-                Some("world"),
+                None,
+                None,
             )
             .unwrap();
-            let start = Instant::now();
-            let audio = tts
-                .synthesize("Hello, World! 你好，世界！", &config)
-                .unwrap();
-            println!("{:?}", audio.audio_metadata);
-            println!("{:?}", Instant::now() - start);
+            synthesize(tts, &config);
+
+            let tts = MSEdgeTTSClient::connect_proxy(
+                "socks4://localhost:10808".parse().unwrap(),
+                None,
+                None,
+            )
+            .unwrap();
+            synthesize(tts, &config);
             break;
         }
     }
+}
+
+fn synthesize<T: Read + Write>(mut tts: MSEdgeTTSClient<T>, config: &SpeechConfig) {
+    let start = Instant::now();
+    let audio = tts
+        .synthesize("Hello, World! 你好，世界！", &config)
+        .unwrap();
+    println!("{:?}", audio.audio_metadata);
+    println!("{:?}", Instant::now() - start);
 }

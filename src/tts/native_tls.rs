@@ -2,7 +2,10 @@ use crate::{
     error::{HttpProxyError, ProxyError, Result},
     tts::{
         build_websocket_request,
-        proxy::{build_http_proxy, build_http_proxy_async, ProxyAsyncStream, ProxyStream},
+        proxy::{
+            http_proxy, http_proxy_async, socks4_proxy, socks4_proxy_async, ProxyAsyncStream,
+            ProxyStream,
+        },
     },
 };
 
@@ -24,14 +27,17 @@ pub fn websocket_connect_proxy(
     let request = build_websocket_request()?;
     let stream: std::result::Result<ProxyStream, ProxyError> = match proxy.scheme_str() {
         Some(scheme) => match scheme {
-            "socks4" | "socks4a" | "socks5" | "socks5h" => todo!(),
+            "socks4" | "socks4a" => {
+                socks4_proxy(request.uri().host().unwrap(), proxy, username).map_err(|e| e.into())
+            }
+            "socks5" | "socks5h" => todo!(),
             "http" | "https" => {
-                build_http_proxy(request.uri().host().unwrap(), proxy, username, password)
+                http_proxy(request.uri().host().unwrap(), proxy, username, password)
                     .map_err(|e| e.into())
             }
             _ => Err(HttpProxyError::NotSupportedScheme(proxy).into()),
         },
-        None => build_http_proxy(request.uri().host().unwrap(), proxy, username, password)
+        None => http_proxy(request.uri().host().unwrap(), proxy, username, password)
             .map_err(|e| e.into()),
     };
     let (websocket, _) = tungstenite::client_tls(request, stream?).map_err(|e| match e {
@@ -58,15 +64,20 @@ pub async fn websocket_connect_proxy_async(
     let request = build_websocket_request()?;
     let stream: std::result::Result<ProxyAsyncStream, ProxyError> = match proxy.scheme_str() {
         Some(scheme) => match scheme {
-            "socks4" | "socks4a" | "socks5" | "socks5h" => todo!(),
+            "socks4" | "socks4a" => {
+                socks4_proxy_async(request.uri().host().unwrap(), proxy, username)
+                    .await
+                    .map_err(|e| e.into())
+            }
+            "socks5" | "socks5h" => todo!(),
             "http" | "https" => {
-                build_http_proxy_async(request.uri().host().unwrap(), proxy, username, password)
+                http_proxy_async(request.uri().host().unwrap(), proxy, username, password)
                     .await
                     .map_err(|e| e.into())
             }
             _ => Err(HttpProxyError::NotSupportedScheme(proxy).into()),
         },
-        None => build_http_proxy_async(request.uri().host().unwrap(), proxy, username, password)
+        None => http_proxy_async(request.uri().host().unwrap(), proxy, username, password)
             .await
             .map_err(|e| e.into()),
     };

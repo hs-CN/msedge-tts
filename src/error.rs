@@ -20,14 +20,16 @@ pub enum Error {
 pub enum ProxyError {
     #[error("http proxy error: {0}")]
     HttpProxyError(#[from] HttpProxyError),
+    #[error("socks4 proxy error: {0}")]
+    Socks4ProxyError(#[from] Socks4ProxyError),
 }
 
 #[derive(Error, Debug)]
 pub enum HttpProxyError {
-    #[error("proxy url no host name: {0}")]
-    NoHostName(http::Uri),
-    #[error("proxy url empty host name: {0}")]
-    EmptyHostName(http::Uri),
+    #[error("no proxy server host name: {0}")]
+    NoProxyServerHostName(http::Uri),
+    #[error("proxy host name is empty: {0}")]
+    EmptyProxyServerHostName(http::Uri),
     #[error("io error: {0}")]
     IoError(#[from] std::io::Error),
     #[error("native tls error: {0}")]
@@ -40,4 +42,30 @@ pub enum HttpProxyError {
     NoStatusCode,
     #[error("not supported scheme: {0}")]
     NotSupportedScheme(http::Uri),
+}
+
+#[derive(Error, Debug)]
+pub enum Socks4ProxyError {
+    #[error("no proxy server host name: {0}")]
+    NoProxyServerHostName(http::Uri),
+    #[error("no proxy server port: {0}")]
+    NoProxyServerPort(http::Uri),
+    #[error("proxy host name is empty: {0}")]
+    EmptyProxyServerHostName(http::Uri),
+    #[error("io error: {0}")]
+    IoError(#[from] std::io::Error),
+    #[error("empty scheme: {0}")]
+    NoScheme(http::Uri),
+    #[error("not supported scheme: {0}")]
+    NotSupportedScheme(http::Uri),
+    #[error("lookup socket addr v4 failed: {0}")]
+    NoSocketAddrV4(String),
+    #[error("request rejected or failed")]
+    RequestRejectedOrFailed(u8),
+    #[error("no available identd service")]
+    NoneAvailableIdentdService(u8),
+    #[error("identd check failed: {0}")]
+    IdentdCheckFailed(u8),
+    #[error("unknown reply code: {0}")]
+    UnknownReplyCode(u8),
 }

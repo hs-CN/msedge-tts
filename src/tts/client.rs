@@ -105,7 +105,7 @@ impl MSEdgeTTSClientAsync<ProxyAsyncStream> {
 
 impl<T: AsyncRead + AsyncWrite + Unpin> MSEdgeTTSClientAsync<T> {
     /// Synthesize text to speech with a [SpeechConfig] asynchronously
-    pub async fn synthesize_async(
+    pub async fn synthesize(
         &mut self,
         text: &str,
         config: &SpeechConfig,

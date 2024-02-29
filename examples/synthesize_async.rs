@@ -14,7 +14,7 @@ fn main() {
                 let mut tts = MSEdgeTTSClientAsync::connect_async().await.unwrap();
                 let start = Instant::now();
                 let audio = tts
-                    .synthesize_async("Hello, World! 你好，世界！", &config)
+                    .synthesize("Hello, World! 你好，世界！", &config)
                     .await
                     .unwrap();
                 println!("{:?}", audio.audio_metadata);
