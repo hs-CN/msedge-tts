@@ -295,7 +295,7 @@ pub async fn socks4_proxy_async(
     proxy: http::Uri,
     username: Option<&str>,
 ) -> Result<ProxyAsyncStream, Socks4ProxyError> {
-    use std::net::ToSocketAddrs;
+    use async_std::net::ToSocketAddrs;
 
     if proxy.host().is_none() {
         return Err(Socks4ProxyError::NoProxyServerHostName(proxy));
@@ -312,7 +312,7 @@ pub async fn socks4_proxy_async(
     let mut stream = async_std::net::TcpStream::connect((proxy_host, proxy_port)).await?;
     let packets = match proxy.scheme_str() {
         Some("socks4") => {
-            let mut socket_addrs = (target_host, 443).to_socket_addrs()?;
+            let mut socket_addrs = (target_host, 443).to_socket_addrs().await?;
             let ipv4 = loop {
                 match socket_addrs.next() {
                     Some(socket_addr) => match socket_addr.ip() {
