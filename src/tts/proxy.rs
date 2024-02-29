@@ -1,6 +1,9 @@
-use crate::error::{HttpProxyError, Result};
+use crate::error::HttpProxyError;
 use base64::Engine;
+use futures_util::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use std::io::{Read, Write};
+use std::pin::pin;
+use std::result::Result;
 
 pub enum ProxyStream {
     TcpStream(std::net::TcpStream),
@@ -62,10 +65,11 @@ pub fn build_http_proxy(
             })?;
             ProxyStream::TlsStream(stream)
         }
-        Some("http") | None | _ => {
+        Some("http") | None => {
             let stream = std::net::TcpStream::connect((proxy_host, proxy_port))?;
             ProxyStream::TcpStream(stream)
         }
+        Some(_) => Err(HttpProxyError::NotSupportedScheme(proxy))?,
     };
 
     stream.write_all(build_http_proxy_request(target_host, username, password).as_bytes())?;
@@ -94,13 +98,114 @@ pub fn build_http_proxy(
     }
 }
 
+pub enum ProxyAsyncStream {
+    TcpStream(async_std::net::TcpStream),
+    TlsStream(async_native_tls::TlsStream<async_std::net::TcpStream>),
+}
+
+impl AsyncRead for ProxyAsyncStream {
+    fn poll_read(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut [u8],
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        match self.get_mut() {
+            Self::TcpStream(stream) => pin!(stream).poll_read(cx, buf),
+            Self::TlsStream(stream) => pin!(stream).poll_read(cx, buf),
+        }
+    }
+}
+
+impl AsyncWrite for ProxyAsyncStream {
+    fn poll_write(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        match self.get_mut() {
+            Self::TcpStream(stream) => pin!(stream).poll_write(cx, buf),
+            Self::TlsStream(stream) => pin!(stream).poll_write(cx, buf),
+        }
+    }
+
+    fn poll_flush(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            Self::TcpStream(stream) => pin!(stream).poll_flush(cx),
+            Self::TlsStream(stream) => pin!(stream).poll_flush(cx),
+        }
+    }
+
+    fn poll_close(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            Self::TcpStream(stream) => pin!(stream).poll_close(cx),
+            Self::TlsStream(stream) => pin!(stream).poll_close(cx),
+        }
+    }
+}
+
 pub async fn build_http_proxy_async(
     target_host: &str,
     proxy: http::Uri,
     username: Option<&str>,
     password: Option<&str>,
-) -> Result<async_std::net::TcpStream> {
-    todo!()
+) -> Result<ProxyAsyncStream, HttpProxyError> {
+    if proxy.host().is_none() {
+        return Err(HttpProxyError::NoHostName(proxy));
+    }
+    let proxy_host = proxy.host().unwrap();
+    if proxy_host.is_empty() {
+        return Err(HttpProxyError::EmptyHostName(proxy));
+    }
+    let proxy_port = proxy.port_u16().unwrap_or(match proxy.scheme_str() {
+        Some("https") => 443,
+        Some("http") | None | _ => 80,
+    });
+
+    let mut stream = match proxy.scheme_str() {
+        Some("https") => {
+            let stream = async_std::net::TcpStream::connect((proxy_host, proxy_port)).await?;
+            let stream = async_native_tls::connect(proxy_host, stream).await?;
+            ProxyAsyncStream::TlsStream(stream)
+        }
+        Some("http") | None => {
+            let stream = async_std::net::TcpStream::connect((proxy_host, proxy_port)).await?;
+            ProxyAsyncStream::TcpStream(stream)
+        }
+        Some(_) => Err(HttpProxyError::NotSupportedScheme(proxy))?,
+    };
+
+    stream
+        .write_all(build_http_proxy_request(target_host, username, password).as_bytes())
+        .await?;
+    stream.flush().await?;
+
+    let mut buf = [0u8; 1024];
+    let mut n = 0;
+    loop {
+        n += stream.read(&mut buf[n..]).await?;
+        if n >= 4 && &buf[n - 4..n] == b"\r\n\r\n" {
+            break;
+        }
+    }
+
+    let mut headers = [httparse::EMPTY_HEADER; 5];
+    let mut response = httparse::Response::new(&mut headers);
+    response.parse(&buf)?;
+
+    match response.code {
+        None => Err(HttpProxyError::NoStatusCode),
+        Some(200) => Ok(stream),
+        Some(code) => Err(HttpProxyError::BadResponse(
+            code,
+            response.reason.unwrap_or("").to_owned(),
+        )),
+    }
 }
 
 fn build_http_proxy_request(

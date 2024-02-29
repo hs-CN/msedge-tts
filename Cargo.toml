@@ -12,19 +12,20 @@ readme = "Readme.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["use-native-tls"]
-use-native-tls = [
+default = ["native-tls"]
+native-tls = [
     "tungstenite/native-tls",
     "async-tungstenite/async-native-tls",
-    "native-tls",
+    "dep:native-tls",
+    "dep:async-native-tls",
 ]
 ssl-key-log = [
     "tungstenite/rustls-tls-native-roots",
-    "rustls",
-    "rustls-native-certs",
+    "dep:rustls",
+    "dep:rustls-native-certs",
     "async-tungstenite/async-tls",
-    "old_rustls",
-    "async-tls",
+    "dep:old_rustls",
+    "dep:async-tls",
 ]
 
 
@@ -41,6 +42,7 @@ futures-util = "0.3.30"
 async-lock = "3.3.0"
 async-io = "2.3.1"
 native-tls = { version = "0.2.11", optional = true }
+async-native-tls = { version = "0.5.0", optional = true }
 rustls = { version = "0.22.2", optional = true }
 rustls-native-certs = { version = "0.7.0", optional = true }
 old_rustls = { version = "0.21.10", optional = true, package = "rustls" }

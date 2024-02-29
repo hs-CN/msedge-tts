@@ -2,7 +2,7 @@
 
 use super::{
     build_config_message, build_ssml_message, process_message,
-    proxy::ProxyStream,
+    proxy::{ProxyAsyncStream, ProxyStream},
     tls::{
         websocket_connect, websocket_connect_async, websocket_connect_proxy,
         websocket_connect_proxy_async, WebSocketStream, WebSocketStreamAsync,
@@ -10,6 +10,7 @@ use super::{
     AudioMetadata, ProcessedMessage, SpeechConfig,
 };
 use crate::error::Result;
+use futures_util::{AsyncRead, AsyncWrite};
 use std::io::{Read, Write};
 
 /// Sync Client
@@ -80,14 +81,16 @@ impl<T: Read + Write> MSEdgeTTSClient<T> {
 }
 
 /// Async Client
-pub struct MSEdgeTTSClientAsync(WebSocketStreamAsync);
+pub struct MSEdgeTTSClientAsync<T>(WebSocketStreamAsync<T>);
 
-impl MSEdgeTTSClientAsync {
+impl MSEdgeTTSClientAsync<async_std::net::TcpStream> {
     /// Create a new async Client
     pub async fn connect_async() -> Result<Self> {
         Ok(Self(websocket_connect_async().await?))
     }
+}
 
+impl MSEdgeTTSClientAsync<ProxyAsyncStream> {
     /// Create a new async Client with proxy
     pub async fn connect_proxy_async(
         proxy: http::Uri,
@@ -98,7 +101,9 @@ impl MSEdgeTTSClientAsync {
             websocket_connect_proxy_async(proxy, username, password).await?,
         ))
     }
+}
 
+impl<T: AsyncRead + AsyncWrite + Unpin> MSEdgeTTSClientAsync<T> {
     /// Synthesize text to speech with a [SpeechConfig] asynchronously
     pub async fn synthesize_async(
         &mut self,

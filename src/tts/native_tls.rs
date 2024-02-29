@@ -1,8 +1,8 @@
 use crate::{
-    error::{ProxyError, Result},
+    error::{HttpProxyError, ProxyError, Result},
     tts::{
         build_websocket_request,
-        proxy::{build_http_proxy, build_http_proxy_async, ProxyStream},
+        proxy::{build_http_proxy, build_http_proxy_async, ProxyAsyncStream, ProxyStream},
     },
 };
 
@@ -25,10 +25,11 @@ pub fn websocket_connect_proxy(
     let stream: std::result::Result<ProxyStream, ProxyError> = match proxy.scheme_str() {
         Some(scheme) => match scheme {
             "socks4" | "socks4a" | "socks5" | "socks5h" => todo!(),
-            "http" | "https" | _ => {
+            "http" | "https" => {
                 build_http_proxy(request.uri().host().unwrap(), proxy, username, password)
                     .map_err(|e| e.into())
             }
+            _ => Err(HttpProxyError::NotSupportedScheme(proxy).into()),
         },
         None => build_http_proxy(request.uri().host().unwrap(), proxy, username, password)
             .map_err(|e| e.into()),
@@ -40,10 +41,10 @@ pub fn websocket_connect_proxy(
     Ok(websocket)
 }
 
-pub type WebSocketStreamAsync =
-    async_tungstenite::WebSocketStream<async_tungstenite::async_std::ConnectStream>;
+pub type WebSocketStreamAsync<T> =
+    async_tungstenite::WebSocketStream<async_tungstenite::async_std::ClientStream<T>>;
 
-pub async fn websocket_connect_async() -> Result<WebSocketStreamAsync> {
+pub async fn websocket_connect_async() -> Result<WebSocketStreamAsync<async_std::net::TcpStream>> {
     let request = build_websocket_request()?;
     let (websocket, _) = async_tungstenite::async_std::connect_async(request).await?;
     Ok(websocket)
@@ -53,20 +54,22 @@ pub async fn websocket_connect_proxy_async(
     proxy: http::Uri,
     username: Option<&str>,
     password: Option<&str>,
-) -> Result<WebSocketStreamAsync> {
+) -> Result<WebSocketStreamAsync<ProxyAsyncStream>> {
     let request = build_websocket_request()?;
-    let stream = match proxy.scheme_str() {
+    let stream: std::result::Result<ProxyAsyncStream, ProxyError> = match proxy.scheme_str() {
         Some(scheme) => match scheme {
             "socks4" | "socks4a" | "socks5" | "socks5h" => todo!(),
-            "http" | "https" | _ => {
+            "http" | "https" => {
                 build_http_proxy_async(request.uri().host().unwrap(), proxy, username, password)
-                    .await?
+                    .await
+                    .map_err(|e| e.into())
             }
+            _ => Err(HttpProxyError::NotSupportedScheme(proxy).into()),
         },
-        None => {
-            build_http_proxy_async(request.uri().host().unwrap(), proxy, username, password).await?
-        }
+        None => build_http_proxy_async(request.uri().host().unwrap(), proxy, username, password)
+            .await
+            .map_err(|e| e.into()),
     };
-    let (websocket, _) = async_tungstenite::async_std::client_async_tls(request, stream).await?;
+    let (websocket, _) = async_tungstenite::async_std::client_async_tls(request, stream?).await?;
     Ok(websocket)
 }

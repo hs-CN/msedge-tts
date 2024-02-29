@@ -38,4 +38,6 @@ pub enum HttpProxyError {
     BadResponse(u16, String),
     #[error("no status code")]
     NoStatusCode,
+    #[error("not supported scheme: {0}")]
+    NotSupportedScheme(http::Uri),
 }
