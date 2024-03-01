@@ -448,9 +448,6 @@ pub fn socks5_proxy(
         // Server response: VER (1), STATUS (1)
         let mut buf = [0u8; 2];
         stream.read_exact(&mut buf)?;
-        if buf[0] != 0x05 {
-            return Err(Socks5ProxyError::BadResponseVersion(buf[0]));
-        }
         if buf[1] != 0x00 {
             return Err(Socks5ProxyError::ClientAuthenticationFailed(buf));
         }
@@ -575,9 +572,6 @@ pub async fn socks5_proxy_asnyc(
         // Server response: VER (1), STATUS (1)
         let mut buf = [0u8; 2];
         stream.read_exact(&mut buf).await?;
-        if buf[0] != 0x05 {
-            return Err(Socks5ProxyError::BadResponseVersion(buf[0]));
-        }
         if buf[1] != 0x00 {
             return Err(Socks5ProxyError::ClientAuthenticationFailed(buf));
         }

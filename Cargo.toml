@@ -1,13 +1,13 @@
 [package]
 name = "msedge-tts"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "This library is a wrapper of MSEdge Read aloud function API. You can use it to synthesize text to speech with many voices MS provided."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/hs-CN/msedge-tts"
 keywords = ["tts", "text-to-speech", "msedge-tts", "edge-tts"]
 categories = ["accessibility"]
-readme = "Readme.md"
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
