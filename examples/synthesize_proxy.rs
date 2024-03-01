@@ -1,4 +1,10 @@
-use msedge_tts::{tts::client::MSEdgeTTSClient, tts::SpeechConfig, voice::get_voices_list};
+use msedge_tts::{
+    tts::{
+        client::{connect_proxy, MSEdgeTTSClient},
+        SpeechConfig,
+    },
+    voice::get_voices_list,
+};
 use std::{
     io::{Read, Write},
     time::Instant,
@@ -11,28 +17,15 @@ fn main() {
         if voice.name.contains("YunyangNeural") {
             println!("choose '{}' to synthesize...", voice.name);
             let config = SpeechConfig::from(voice);
-            let tts = MSEdgeTTSClient::connect_proxy(
-                "http://localhost:10809".parse().unwrap(),
-                None,
-                None,
-            )
-            .unwrap();
+            let tts = connect_proxy("http://localhost:10809".parse().unwrap(), None, None).unwrap();
             synthesize(tts, &config);
 
-            let tts = MSEdgeTTSClient::connect_proxy(
-                "socks4://localhost:10808".parse().unwrap(),
-                None,
-                None,
-            )
-            .unwrap();
+            let tts =
+                connect_proxy("socks4://localhost:10808".parse().unwrap(), None, None).unwrap();
             synthesize(tts, &config);
 
-            let tts = MSEdgeTTSClient::connect_proxy(
-                "socks5://localhost:10808".parse().unwrap(),
-                None,
-                None,
-            )
-            .unwrap();
+            let tts =
+                connect_proxy("socks5://localhost:10808".parse().unwrap(), None, None).unwrap();
             synthesize(tts, &config);
             break;
         }

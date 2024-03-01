@@ -1,4 +1,4 @@
-//! Client and Stream, SpeechConfig, Response Type.
+//! TTS Client and Stream, SpeechConfig, Response Type.
 mod proxy;
 
 pub mod client;

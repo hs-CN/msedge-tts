@@ -1,3 +1,5 @@
+//! Error Type
+
 use thiserror::Error;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
@@ -16,6 +18,7 @@ pub enum Error {
     ProxyError(#[from] ProxyError),
 }
 
+/// Proxy Error
 #[derive(Error, Debug)]
 pub enum ProxyError {
     #[error("not supported scheme: {0}")]
@@ -28,6 +31,7 @@ pub enum ProxyError {
     Socks5ProxyError(#[from] Socks5ProxyError),
 }
 
+/// Http Proxy Error
 #[derive(Error, Debug)]
 pub enum HttpProxyError {
     #[error("no proxy server host name: {0}")]
@@ -48,6 +52,7 @@ pub enum HttpProxyError {
     NotSupportedScheme(http::Uri),
 }
 
+/// Socks4 Proxy Error
 #[derive(Error, Debug)]
 pub enum Socks4ProxyError {
     #[error("no proxy server host name: {0}")]
@@ -74,6 +79,7 @@ pub enum Socks4ProxyError {
     UnknownReplyCode(u8),
 }
 
+/// Socks5 Proxy Error
 #[derive(Error, Debug)]
 pub enum Socks5ProxyError {
     #[error("no proxy server host name: {0}")]

@@ -7,10 +7,7 @@
 //!
 //! # How to use
 //! 1. You need get a [SpeechConfig](tts::SpeechConfig) to configure the voice of text to speech.  
-//! You can convert [Voice](voice::Voice) to [SpeechConfig](tts::SpeechConfig) simply.  
-//! Use [get_voices_list](voice) function to get all available voices.
-//! You can also use [get_voices_list_async](voice) function to get all available voices asynchronously.
-//! [Voice](voice::Voice) implemented [serde::Serialize] and [serde::Deserialize].  
+//! You can convert [Voice](voice::Voice) to [SpeechConfig](tts::SpeechConfig) simply. Use [get_voices_list](voice) function to get all available voices. [Voice](voice::Voice) implemented [serde::Serialize] and [serde::Deserialize].  
 //! For example:
 //!     ```rust
 //!     use msedge_tts::voice::get_voices_list;
@@ -23,21 +20,21 @@
 //!     ```
 //!     You can also create [SpeechConfig](tts::SpeechConfig) by yourself. Make sure you know the right **voice name** and **audio format**.
 //!
-//! 2. Create a synthesis Client or Stream. Both of them have sync and async version. Example below step 3.
+//! 2. Create a TTS [Client](tts::client) or [Stream](tts::stream). Both of them have sync and async version. Example below step 3.
 //!
 //! 3. Synthesize text to speech.
 //!     ### Sync Client
 //!     Call client function [synthesize](tts::client::MSEdgeTTSClient::synthesize) to synthesize text to speech. This function return Type [SynthesizedAudio](tts::client::SynthesizedAudio),
 //!     you can get [audio_bytes](tts::client::SynthesizedAudio::audio_bytes) and [audio_metadata](tts::client::SynthesizedAudio::audio_metadata).
 //!     ```rust
-//!     use msedge_tts::{tts::client::MSEdgeTTSClient, tts::SpeechConfig, voice::get_voices_list};
+//!     use msedge_tts::{tts::client::connect, tts::SpeechConfig, voice::get_voices_list};
 //!     
 //!     fn main() {
 //!         let voices = get_voices_list().unwrap();
 //!         for voice in &voices {
 //!             if voice.name.contains("YunyangNeural") {
 //!                 let config = SpeechConfig::from(voice);
-//!                 let mut tts = MSEdgeTTSClient::connect().unwrap();
+//!                 let mut tts = connect().unwrap();
 //!                 let audio = tts
 //!                     .synthesize("Hello, World! 你好，世界！", &config)
 //!                     .unwrap();
@@ -50,7 +47,7 @@
 //!     Call client function [synthesize](tts::client::MSEdgeTTSClientAsync::synthesize) to synthesize text to speech. This function return Type [SynthesizedAudio](tts::client::SynthesizedAudio),
 //!     you can get [audio_bytes](tts::client::SynthesizedAudio::audio_bytes) and [audio_metadata](tts::client::SynthesizedAudio::audio_metadata).
 //!     ```rust
-//!     use msedge_tts::{tts::client::MSEdgeTTSClientAsync, tts::SpeechConfig, voice::get_voices_list_async};
+//!     use msedge_tts::{tts::client::connect_async, tts::SpeechConfig, voice::get_voices_list_async};
 //!     
 //!     fn main() {
 //!         smol::block_on(async {
@@ -58,7 +55,7 @@
 //!             for voice in &voices {
 //!                 if voice.name.contains("YunyangNeural") {
 //!                     let config = SpeechConfig::from(voice);
-//!                     let mut tts = MSEdgeTTSClientAsync::connect_async().await.unwrap();
+//!                     let mut tts = connect_async().await.unwrap();
 //!                     let audio = tts
 //!                         .synthesize("Hello, World! 你好，世界！", &config)
 //!                         .await

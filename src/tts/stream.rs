@@ -1,4 +1,4 @@
-//! Synthesis Stream
+//! TTS Stream module
 
 use super::{
     super::error::Result,
@@ -20,7 +20,7 @@ use std::{
     time::Duration,
 };
 
-/// Synthesis Stream Response
+/// Synthesized Stream Response
 #[derive(Debug)]
 pub enum SynthesizedResponse {
     /// Synthesized Audio bytes segment
@@ -42,12 +42,21 @@ impl From<ProcessedMessage> for SynthesizedResponse {
     }
 }
 
-/// Create Sync Synthesis Stream [Sender] and [Reader]
+/// Create Sync TTS Stream [Sender] and [Reader]
 pub fn msedge_tts_split() -> Result<(Sender<std::net::TcpStream>, Reader<std::net::TcpStream>)> {
     _msedge_tts_split(websocket_connect()?)
 }
 
-/// Create Sync Synthesis Stream [Sender] and [Reader] with proxy
+/// Create Sync TTS Stream [Sender] and [Reader] with proxy
+///
+/// The proxy protocol is specified by the URI scheme.
+///
+/// `http`: Proxy. Default when no scheme is specified.  
+/// `https`: HTTPS Proxy.  
+/// `socks4`: SOCKS4 Proxy.  
+/// `socks4a`: SOCKS4a Proxy. Proxy resolves URL hostname.  
+/// `socks5`: SOCKS5 Proxy.  
+/// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
 pub fn msedge_tts_split_proxy(
     proxy: http::Uri,
     username: Option<&str>,
@@ -75,7 +84,7 @@ fn _msedge_tts_split<T: Read + Write>(
     Ok((sender, reader))
 }
 
-/// Sync Synthesis Stream Sender
+/// Sync TTS Stream Sender
 pub struct Sender<T: Read + Write> {
     websocket: Arc<Mutex<WebSocketStream<T>>>,
     can_read_cvar: Arc<(Mutex<bool>, Condvar)>,
@@ -110,7 +119,7 @@ impl<T: Read + Write> Sender<T> {
     }
 }
 
-/// Sync Synthesis Stream Reader
+/// Sync TTS Stream Reader
 pub struct Reader<T: Read + Write> {
     websocket: Arc<Mutex<WebSocketStream<T>>>,
     can_read_cvar: Arc<(Mutex<bool>, Condvar)>,
@@ -156,7 +165,7 @@ impl<T: Read + Write> Reader<T> {
     }
 }
 
-/// Create Async Synthesis Stream [SenderAsync] and [ReaderAsync]
+/// Create Async TTS Stream [SenderAsync] and [ReaderAsync]
 pub async fn msedge_tts_split_async() -> Result<(
     SenderAsync<async_std::net::TcpStream>,
     ReaderAsync<async_std::net::TcpStream>,
@@ -164,7 +173,16 @@ pub async fn msedge_tts_split_async() -> Result<(
     _msedge_tts_split_async(websocket_connect_async().await?)
 }
 
-/// Create Async Synthesis Stream [SenderAsync] and [ReaderAsync] with proxy
+/// Create Async TTS Stream [SenderAsync] and [ReaderAsync] with proxy
+///
+/// The proxy protocol is specified by the URI scheme.
+///
+/// `http`: Proxy. Default when no scheme is specified.  
+/// `https`: HTTPS Proxy.  
+/// `socks4`: SOCKS4 Proxy.  
+/// `socks4a`: SOCKS4a Proxy. Proxy resolves URL hostname.  
+/// `socks5`: SOCKS5 Proxy.  
+/// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
 pub async fn msedge_tts_split_proxy_async(
     proxy: http::Uri,
     username: Option<&str>,
@@ -193,7 +211,7 @@ fn _msedge_tts_split_async<T: AsyncRead + AsyncWrite + Unpin>(
     ))
 }
 
-/// Async Synthesis Stream Sender
+/// Async TTS Stream Sender
 pub struct SenderAsync<T> {
     sink: SplitSink<WebSocketStreamAsync<T>, tungstenite::Message>,
     can_read: Arc<async_lock::Mutex<bool>>,
@@ -222,7 +240,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin> SenderAsync<T> {
     }
 }
 
-/// Async Synthesis Stream Reader
+/// Async TTS Stream Reader
 pub struct ReaderAsync<T> {
     stream: SplitStream<WebSocketStreamAsync<T>>,
     can_read: Arc<async_lock::Mutex<bool>>,
