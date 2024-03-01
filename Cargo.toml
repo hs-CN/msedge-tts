@@ -1,6 +1,6 @@
 [package]
 name = "msedge-tts"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 description = "This library is a wrapper of MSEdge Read aloud function API. You can use it to synthesize text to speech with many voices MS provided."
 license = "MIT OR Apache-2.0"
@@ -11,37 +11,25 @@ readme = "Readme.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[features]
-default = ["native-tls"]
-native-tls = ["tungstenite/native-tls", "async-tungstenite/async-native-tls"]
-ssl-key-log = [
-    "tungstenite/rustls-tls-native-roots",
-    "rustls",
-    "rustls-native-certs",
-    "async-tungstenite/async-tls",
-    "old_rustls",
-    "async-tls",
-    "async-net",
-]
-
 
 [dependencies]
-thiserror = "1.0.57"
+async-io = "2.3.1"
+async-lock = "3.3.0"
+async-native-tls = "0.5.0"
+async-std = "1.12.0"
+async-tungstenite = { version = "0.25.0", features = ["async-native-tls"] }
+base64 = "0.21.7"
+chrono = "0.4.34"
+futures-util = "0.3.30"
+http = "1.0.0"
+httparse = "1.8.0"
 isahc = { version = "1.7.2", features = ["json"] }
+native-tls = "0.2.11"
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.114"
-chrono = "0.4.34"
+thiserror = "1.0.57"
+tungstenite = { version = "0.21.0", features = ["native-tls"] }
 uuid = { version = "1.7.0", features = ["fast-rng", "v4"] }
-tungstenite = "0.21.0"
-async-tungstenite = "0.25.0"
-futures-util = "0.3.30"
-async-lock = "3.3.0"
-async-io = "2.3.1"
-rustls = { version = "0.22.2", optional = true }
-rustls-native-certs = { version = "0.7.0", optional = true }
-old_rustls = { version = "0.21.10", optional = true, package = "rustls" }
-async-tls = { version = "0.13.0", optional = true }
-async-net = { version = "2.0.0", optional = true }
 
 [dev-dependencies]
 smol = "2.0.0"

@@ -1,4 +1,7 @@
-use msedge_tts::{tts::client::MSEdgeTTSClient, tts::SpeechConfig, voice::get_voices_list};
+use msedge_tts::{
+    tts::{client::connect, SpeechConfig},
+    voice::get_voices_list,
+};
 use std::time::Instant;
 
 fn main() {
@@ -8,7 +11,7 @@ fn main() {
         if voice.name.contains("YunyangNeural") {
             println!("choose '{}' to synthesize...", voice.name);
             let config = SpeechConfig::from(voice);
-            let mut tts = MSEdgeTTSClient::connect().unwrap();
+            let mut tts = connect().unwrap();
             let start = Instant::now();
             let audio = tts
                 .synthesize("Hello, World! 你好，世界！", &config)
