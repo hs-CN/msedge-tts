@@ -1,10 +1,6 @@
 //! This library is a wrapper of **MSEdge Read aloud** function API.
 //! You can use it to synthesize text to speech with many voices MS provided.
 //!
-//! # Features
-//! + `native-tls`: use native tls for https and websocket. Default
-//! + `ssl-key-log`: enbale `SSLKEYLOGFILE` log for some traffic analysis tools like wireshark. Debug Only
-//!
 //! # How to use
 //! 1. You need get a [SpeechConfig](tts::SpeechConfig) to configure the voice of text to speech.  
 //! You can convert [Voice](voice::Voice) to [SpeechConfig](tts::SpeechConfig) simply. Use [get_voices_list](voice) function to get all available voices. [Voice](voice::Voice) implemented [serde::Serialize] and [serde::Deserialize].  

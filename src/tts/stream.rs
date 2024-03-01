@@ -4,11 +4,9 @@ use super::{
     super::error::Result,
     build_config_message, build_ssml_message, process_message,
     proxy::{ProxyAsyncStream, ProxyStream},
-    tls::{
-        websocket_connect, websocket_connect_async, websocket_connect_proxy,
-        websocket_connect_proxy_async, WebSocketStream, WebSocketStreamAsync,
-    },
-    AudioMetadata, ProcessedMessage, SpeechConfig,
+    websocket_connect, websocket_connect_async, websocket_connect_proxy,
+    websocket_connect_proxy_async, AudioMetadata, ProcessedMessage, SpeechConfig, WebSocketStream,
+    WebSocketStreamAsync,
 };
 use futures_util::{
     stream::{SplitSink, SplitStream},
