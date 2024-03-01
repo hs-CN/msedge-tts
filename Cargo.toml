@@ -1,6 +1,6 @@
 [package]
 name = "msedge-tts"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 description = "This library is a wrapper of MSEdge Read aloud function API. You can use it to synthesize text to speech with many voices MS provided."
 license = "MIT OR Apache-2.0"

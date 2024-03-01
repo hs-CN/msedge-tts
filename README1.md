@@ -201,4 +201,4 @@ For example:
     }
     ```
 
-all [examples](https://github.com/hs-CN/msedge-tts/tree/master/examples).
+see all [examples](https://github.com/hs-CN/msedge-tts/tree/master/examples).
