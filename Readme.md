@@ -43,7 +43,7 @@ For example:
     }
     ```
     ### Async Client
-    Call client function `synthesize_async` to synthesize text to speech. This function return Type `SynthesizedAudio`,
+    Call client function `synthesize` to synthesize text to speech. This function return Type `SynthesizedAudio`,
     you can get `audio_bytes` and `audio_metadata`.
     ```rust
     use msedge_tts::{tts::client::MSEdgeTTSClientAsync, tts::SpeechConfig, voice::get_voices_list_async};
@@ -56,7 +56,7 @@ For example:
                     let config = SpeechConfig::from(voice);
                     let mut tts = MSEdgeTTSClientAsync::connect_async().await.unwrap();
                     let audio = tts
-                        .synthesize_async("Hello, World! 你好，世界！", &config)
+                        .synthesize("Hello, World! 你好，世界！", &config)
                         .await
                         .unwrap();
                     break;

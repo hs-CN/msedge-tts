@@ -31,6 +31,11 @@ fn main() {
                 msedge_tts_split_proxy("socks4a://127.0.0.1:10808".parse().unwrap(), None, None)
                     .unwrap();
             synthesize(sender, reader, config.clone());
+
+            let (sender, reader) =
+                msedge_tts_split_proxy("socks5h://127.0.0.1:10808".parse().unwrap(), None, None)
+                    .unwrap();
+            synthesize(sender, reader, config.clone());
             break;
         }
     }

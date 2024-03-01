@@ -29,6 +29,15 @@ fn main() {
                 .await
                 .unwrap();
                 synthesize(tts, &config).await;
+
+                let tts = MSEdgeTTSClientAsync::connect_proxy_async(
+                    "socks5://localhost:10808".parse().unwrap(),
+                    None,
+                    None,
+                )
+                .await
+                .unwrap();
+                synthesize(tts, &config).await;
                 break;
             }
         }

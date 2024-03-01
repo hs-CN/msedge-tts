@@ -47,7 +47,7 @@
 //!     }
 //!     ```
 //!     ### Async Client
-//!     Call client function [synthesize_async](tts::client::MSEdgeTTSClientAsync::synthesize_async) to synthesize text to speech. This function return Type [SynthesizedAudio](tts::client::SynthesizedAudio),
+//!     Call client function [synthesize](tts::client::MSEdgeTTSClientAsync::synthesize) to synthesize text to speech. This function return Type [SynthesizedAudio](tts::client::SynthesizedAudio),
 //!     you can get [audio_bytes](tts::client::SynthesizedAudio::audio_bytes) and [audio_metadata](tts::client::SynthesizedAudio::audio_metadata).
 //!     ```rust
 //!     use msedge_tts::{tts::client::MSEdgeTTSClientAsync, tts::SpeechConfig, voice::get_voices_list_async};
@@ -60,7 +60,7 @@
 //!                     let config = SpeechConfig::from(voice);
 //!                     let mut tts = MSEdgeTTSClientAsync::connect_async().await.unwrap();
 //!                     let audio = tts
-//!                         .synthesize_async("Hello, World! 你好，世界！", &config)
+//!                         .synthesize("Hello, World! 你好，世界！", &config)
 //!                         .await
 //!                         .unwrap();
 //!                     break;

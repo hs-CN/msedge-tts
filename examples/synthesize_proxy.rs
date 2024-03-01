@@ -26,6 +26,14 @@ fn main() {
             )
             .unwrap();
             synthesize(tts, &config);
+
+            let tts = MSEdgeTTSClient::connect_proxy(
+                "socks5://localhost:10808".parse().unwrap(),
+                None,
+                None,
+            )
+            .unwrap();
+            synthesize(tts, &config);
             break;
         }
     }

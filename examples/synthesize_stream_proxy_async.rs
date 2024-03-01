@@ -39,6 +39,15 @@ fn main() {
                 .await
                 .unwrap();
                 synthesize(sender, reader, config.clone()).await;
+
+                let (sender, reader) = msedge_tts_split_proxy_async(
+                    "socks5h://127.0.0.1:10808".parse().unwrap(),
+                    None,
+                    None,
+                )
+                .await
+                .unwrap();
+                synthesize(sender, reader, config.clone()).await;
                 break;
             }
         }

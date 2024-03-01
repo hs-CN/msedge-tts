@@ -1,10 +1,10 @@
 use crate::{
-    error::{HttpProxyError, ProxyError, Result},
+    error::{ProxyError, Result},
     tts::{
         build_websocket_request,
         proxy::{
-            http_proxy, http_proxy_async, socks4_proxy, socks4_proxy_async, ProxyAsyncStream,
-            ProxyStream,
+            http_proxy, http_proxy_async, socks4_proxy, socks4_proxy_async, socks5_proxy,
+            socks5_proxy_asnyc, ProxyAsyncStream, ProxyStream,
         },
     },
 };
@@ -26,16 +26,19 @@ pub fn websocket_connect_proxy(
 
     let request = build_websocket_request()?;
     let stream: std::result::Result<ProxyStream, ProxyError> = match proxy.scheme_str() {
-        Some(scheme) => match scheme {
+        Some(scheme) => match scheme.to_lowercase().as_str() {
             "socks4" | "socks4a" => {
                 socks4_proxy(request.uri().host().unwrap(), proxy, username).map_err(|e| e.into())
             }
-            "socks5" | "socks5h" => todo!(),
+            "socks5" | "socks5h" => {
+                socks5_proxy(request.uri().host().unwrap(), proxy, username, password)
+                    .map_err(|e| e.into())
+            }
             "http" | "https" => {
                 http_proxy(request.uri().host().unwrap(), proxy, username, password)
                     .map_err(|e| e.into())
             }
-            _ => Err(HttpProxyError::NotSupportedScheme(proxy).into()),
+            _ => Err(ProxyError::NotSupportedScheme(proxy)),
         },
         None => http_proxy(request.uri().host().unwrap(), proxy, username, password)
             .map_err(|e| e.into()),
@@ -63,19 +66,23 @@ pub async fn websocket_connect_proxy_async(
 ) -> Result<WebSocketStreamAsync<ProxyAsyncStream>> {
     let request = build_websocket_request()?;
     let stream: std::result::Result<ProxyAsyncStream, ProxyError> = match proxy.scheme_str() {
-        Some(scheme) => match scheme {
+        Some(scheme) => match scheme.to_lowercase().as_str() {
             "socks4" | "socks4a" => {
                 socks4_proxy_async(request.uri().host().unwrap(), proxy, username)
                     .await
                     .map_err(|e| e.into())
             }
-            "socks5" | "socks5h" => todo!(),
+            "socks5" | "socks5h" => {
+                socks5_proxy_asnyc(request.uri().host().unwrap(), proxy, username, password)
+                    .await
+                    .map_err(|e| e.into())
+            }
             "http" | "https" => {
                 http_proxy_async(request.uri().host().unwrap(), proxy, username, password)
                     .await
                     .map_err(|e| e.into())
             }
-            _ => Err(HttpProxyError::NotSupportedScheme(proxy).into()),
+            _ => Err(ProxyError::NotSupportedScheme(proxy)),
         },
         None => http_proxy_async(request.uri().host().unwrap(), proxy, username, password)
             .await
