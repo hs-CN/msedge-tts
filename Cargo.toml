@@ -13,23 +13,23 @@ readme = "README.md"
 
 
 [dependencies]
-async-io = "2.3.1"
-async-lock = "3.3.0"
+async-io = "2.3.4"
+async-lock = "3.4.0"
 async-native-tls = "0.5.0"
-async-std = "1.12.0"
-async-tungstenite = { version = "0.25.0", features = ["async-native-tls"] }
-base64 = "0.21.7"
-chrono = "0.4.34"
+async-std = "1.13.0"
+async-tungstenite = { version = "0.28.0", features = ["async-native-tls"] }
+base64 = "0.22.1"
+chrono = "0.4.38"
 futures-util = "0.3.30"
-http = "1.0.0"
-httparse = "1.8.0"
+http = "1.1.0"
+httparse = "1.9.4"
 isahc = { version = "1.7.2", features = ["json"] }
-native-tls = "0.2.11"
-serde = { version = "1.0.197", features = ["derive"] }
-serde_json = "1.0.114"
-thiserror = "1.0.57"
-tungstenite = { version = "0.21.0", features = ["native-tls"] }
-uuid = { version = "1.7.0", features = ["fast-rng", "v4"] }
+native-tls = "0.2.12"
+serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0.128"
+thiserror = "1.0.63"
+tungstenite = { version = "0.24.0", features = ["native-tls"] }
+uuid = { version = "1.10.0", features = ["fast-rng", "v4"] }
 
 [dev-dependencies]
-smol = "2.0.0"
+smol = "2.0.2"
