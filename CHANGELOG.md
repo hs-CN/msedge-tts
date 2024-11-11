@@ -1,7 +1,7 @@
 # 0.2.3
 try to fix china mainland 403 forbidden issue.
 solution from:
-https://github.com/rany2/edge-tts/issues/290#issuecomment-2464956570(https://github.com/rany2/edge-tts/issues/290#issuecomment-2464956570)
+https://github.com/rany2/edge-tts/issues/290#issuecomment-2464956570
 
 dependencies update:
 > `async-io` from `2.3.4` to `2.4.0`;
