@@ -178,7 +178,7 @@ fn process_message(
     }
 }
 
-// try to solve china mainland 403 forbidden issue
+// try to fix china mainland 403 forbidden issue
 // solution from:
 // https://github.com/rany2/edge-tts/issues/290#issuecomment-2464956570
 fn gen_sec_ms_gec() -> String {
