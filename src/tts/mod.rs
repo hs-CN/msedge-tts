@@ -178,21 +178,23 @@ fn process_message(
     }
 }
 
-
+// try to solve china mainland 403 forbidden issue
+// solution from:
+// https://github.com/rany2/edge-tts/issues/290#issuecomment-2464956570
 fn gen_sec_ms_gec() -> String {
-    let timestamp = std::time::SystemTime::now()
+    // UTC time from 1601-01-01
+    let duration = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap();
-    let fticks = timestamp.as_micros() as f64 / 1000000f64;
-    let ticks = ((fticks  + 11644473600f64 ) * 10000000f64) as u128;
-    let  ticks= ticks -ticks % 3_000_000_000;
-    let str_value = format!("{ticks}6A5AA1D4EAFF4E9FB37E23D68491D6F4");
+        .unwrap()
+        + std::time::Duration::from_secs(11644473600);
+    let ticks = duration.as_nanos() / 100;
+    let ticks = ticks - ticks % 3_000_000_000;
+
     let mut hasher = sha2::Sha256::new();
-    hasher.update(str_value);
-    let result = hasher.finalize();
-    let ret:&[u8] = &result[..];
+    hasher.update(format!("{ticks}6A5AA1D4EAFF4E9FB37E23D68491D6F4"));
+    let hash_code = hasher.finalize();
     let mut hex_str = String::new();
-    for &byte in ret.iter() {
+    for &byte in hash_code.iter() {
         hex_str.push_str(&format!("{:02X}", byte));
     }
     hex_str
@@ -206,7 +208,14 @@ fn build_websocket_request() -> Result<tungstenite::handshake::client::Request> 
     let uuid = uuid::Uuid::new_v4().simple().to_string();
     let sec_ms_gec = gen_sec_ms_gec();
     let sec_ms_gec_version = "1-130.0.2849.68";
-    let mut request = format!("{}{}&Sec-MS-GEC={}&Sec-MS-GEC-Version={}", constants::WSS_URL, uuid,sec_ms_gec,sec_ms_gec_version).into_client_request()?;
+    let mut request = format!(
+        "{}{}&Sec-MS-GEC={}&Sec-MS-GEC-Version={}",
+        constants::WSS_URL,
+        uuid,
+        sec_ms_gec,
+        sec_ms_gec_version
+    )
+    .into_client_request()?;
     let headers = request.headers_mut();
     headers.insert(
         header::PRAGMA,
