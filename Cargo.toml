@@ -13,24 +13,24 @@ readme = "README.md"
 
 
 [dependencies]
-async-io = "2.3.4"
+async-io = "2.4.0"
 async-lock = "3.4.0"
 async-native-tls = "0.5.0"
 async-std = "1.13.0"
 async-tungstenite = { version = "0.28.0", features = ["async-native-tls"] }
 base64 = "0.22.1"
 chrono = "0.4.38"
-futures-util = "0.3.30"
+futures-util = "0.3.31"
 http = "1.1.0"
-httparse = "1.9.4"
+httparse = "1.9.5"
 isahc = { version = "1.7.2", features = ["json"] }
 native-tls = "0.2.12"
-serde = { version = "1.0.210", features = ["derive"] }
-serde_json = "1.0.128"
+serde = { version = "1.0.214", features = ["derive"] }
+serde_json = "1.0.132"
 sha2 = "0.10.8"
-thiserror = "1.0.63"
+thiserror = "2.0.3"
 tungstenite = { version = "0.24.0", features = ["native-tls"] }
-uuid = { version = "1.10.0", features = ["fast-rng", "v4"] }
+uuid = { version = "1.11.0", features = ["fast-rng", "v4"] }
 
 [dev-dependencies]
 smol = "2.0.2"
