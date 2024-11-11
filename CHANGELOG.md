@@ -4,13 +4,13 @@ solution from:
 https://github.com/rany2/edge-tts/issues/290#issuecomment-2464956570
 
 dependencies update:
-> `async-io` from `2.3.4` to `2.4.0`;
-> `futures-util` from `0.3.30` to `0.3.31`;
-> `httparse` from `1.9.4` to `1.9.5`;
-> `serde` from `1.0.210` to `1.0.214`;
-> `serde_json` from `1.0.128` to `1.0.132`;
-> `thiserror` from `1.0.63` to `2.0.3`;
-> `uuid` from `1.10.0` to `1.11.0`;
+> `async-io` from `2.3.4` to `2.4.0`;  
+> `futures-util` from `0.3.30` to `0.3.31`;  
+> `httparse` from `1.9.4` to `1.9.5`;  
+> `serde` from `1.0.210` to `1.0.214`;  
+> `serde_json` from `1.0.128` to `1.0.132`;  
+> `thiserror` from `1.0.63` to `2.0.3`;  
+> `uuid` from `1.10.0` to `1.11.0`;  
 # 0.2.2
 dependencies update:
 > `async-io` from `2.3.1` to `2.3.4`;  
