@@ -9,7 +9,7 @@ use crate::{constants, error::Result};
 use isahc::{config::Configurable, AsyncReadResponseExt, ReadResponseExt, RequestExt};
 
 /// Voice category tags and personalities tags
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct VoiceTag {
     #[serde(rename = "ContentCategories")]
     pub content_categories: Option<Vec<String>>,
@@ -18,7 +18,7 @@ pub struct VoiceTag {
 }
 
 /// Voice get from MS Edge Read aloud API.
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct Voice {
     #[serde(rename = "Name")]
     pub name: String,
