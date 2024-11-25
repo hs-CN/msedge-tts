@@ -1,3 +1,6 @@
+# 0.2.4
+add derive `Clone` for struct `Voice` and struct `VoiceTag`;  
+add derive `Clone`,`serde::Deserialize`,`serde::Serialize` for struct `SpeechConfig`;
 # 0.2.3
 try to fix china mainland 403 forbidden issue.
 solution from:

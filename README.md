@@ -3,7 +3,8 @@ This library is a wrapper of **MSEdge Read aloud** function API.
 You can use it to synthesize text to speech with many voices MS provided.
 # How to use
 1. You need get a `SpeechConfig` to configure the voice of text to speech.  
-You can convert `Voice` to `SpeechConfig` simply. Use `get_voices_list` function to get all available voices. `Voice` implemented `serde::Serialize` and `serde::Deserialize`.  
+You can convert `Voice` to `SpeechConfig` simply. Use `get_voices_list` function to get all available voices.  
+`Voice` and `SpeechConfig` implemented `serde::Serialize` and `serde::Deserialize`.  
 For example:
     ```rust
     use msedge_tts::voice::get_voices_list;
