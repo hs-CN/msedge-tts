@@ -13,7 +13,7 @@ use proxy::{
 use sha2::Digest;
 
 /// Synthesis Config
-#[derive(Debug)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct SpeechConfig {
     pub voice_name: String,
     /// should be one of Streaming or NonStreaming audio output formats.
