@@ -34,3 +34,4 @@ uuid = { version = "1.11.0", features = ["fast-rng", "v4"] }
 
 [dev-dependencies]
 smol = "2.0.2"
+rodio = "0.20.1"
