@@ -1,3 +1,21 @@
+# 0.3.0
+dependencies update:  
+async-io "2.4.0" -> "2.6.0"  
+async-lock "3.4.0" -> "3.4.2"  
+async-std "1.13.0" -> "1.13.2"  
+async-tungstenite "0.28.0" -> "0.32.1"  
+chrono "0.4.38" -> "0.4.43"  
+http "1.1.0" -> "1.4.0"  
+httparse "1.9.5" -> "1.10.1"  
+native-tls "0.2.12" -> "0.2.14"  
+serde "1.0.214" -> "1.0.228"  
+serde_json "1.0.132" -> "1.0.149"  
+sha2 "0.10.8" -> "0.10.9"  
+thiserror "2.0.3" -> "2.0.18"  
+tungstenite "0.24.0" -> "0.28.0"  
+uuid "1.11.0" -> "1.19.0"  
+rodio "0.20.1" -> "0.21.1"  
+
 # 0.2.5
 try to fix https://github.com/hs-CN/msedge-tts/issues/8  
 thanks @[icsboyx](https://github.com/icsboyx)

@@ -70,7 +70,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin> MSEdgeTTSClientAsync<T> {
         text: &str,
         config: &SpeechConfig,
     ) -> Result<SynthesizedAudio> {
-        use futures_util::{SinkExt, StreamExt};
+        use futures_util::StreamExt;
 
         let config_message = build_config_message(config);
         let ssml_message = build_ssml_message(text, config);

@@ -124,7 +124,7 @@ impl AudioMetadata {
 }
 
 enum ProcessedMessage {
-    AudioBytes((Vec<u8>, usize)),
+    AudioBytes((tungstenite::Bytes, usize)),
     AudioMetadata(Vec<AudioMetadata>),
 }
 
@@ -254,7 +254,7 @@ fn build_config_message(config: &SpeechConfig) -> tungstenite::Message {
         config.audio_format,
         SPEECH_CONFIG_TAIL
     );
-    tungstenite::Message::Text(speech_config_message)
+    tungstenite::Message::Text(speech_config_message.into())
 }
 
 fn build_ssml_message(text: &str, config: &SpeechConfig) -> tungstenite::Message {
@@ -272,7 +272,7 @@ fn build_ssml_message(text: &str, config: &SpeechConfig) -> tungstenite::Message
         chrono::Local::now().to_rfc2822(),
         ssml,
     );
-    tungstenite::Message::Text(ssml_message)
+    tungstenite::Message::Text(ssml_message.into())
 }
 
 type WebSocketStream<T> = tungstenite::WebSocket<tungstenite::stream::MaybeTlsStream<T>>;

@@ -20,10 +20,13 @@ fn main() {
             println!("{:?}", Instant::now() - start);
 
             println!("play audio...");
-            let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
-            let sink = stream_handle
-                .play_once(std::io::Cursor::new(audio.audio_bytes))
-                .unwrap();
+            let stream_handle = rodio::OutputStreamBuilder::open_default_stream().unwrap();
+            let sink = rodio::Sink::connect_new(&stream_handle.mixer());
+
+            let decoder =
+                rodio::decoder::Decoder::new(std::io::Cursor::new(audio.audio_bytes)).unwrap();
+
+            sink.append(decoder);
             sink.sleep_until_end();
             println!("play audio done.");
 

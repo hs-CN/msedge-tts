@@ -8,10 +8,7 @@ use super::{
     websocket_connect_proxy_async, AudioMetadata, ProcessedMessage, SpeechConfig, WebSocketStream,
     WebSocketStreamAsync,
 };
-use futures_util::{
-    stream::{SplitSink, SplitStream},
-    AsyncRead, AsyncWrite, SinkExt, StreamExt,
-};
+use futures_util::{AsyncRead, AsyncWrite, StreamExt};
 use std::{
     io::{Read, Write},
     sync::{Arc, Condvar, Mutex},
@@ -192,15 +189,15 @@ pub async fn msedge_tts_split_proxy_async(
 fn _msedge_tts_split_async<T: AsyncRead + AsyncWrite + Unpin>(
     websocket: WebSocketStreamAsync<T>,
 ) -> Result<(SenderAsync<T>, ReaderAsync<T>)> {
-    let (sink, stream) = websocket.split();
+    let (sender, receiver) = websocket.split();
     let can_read = Arc::new(async_lock::Mutex::new(false));
     Ok((
         SenderAsync {
-            sink,
+            sender,
             can_read: can_read.clone(),
         },
         ReaderAsync {
-            stream,
+            receiver,
             can_read,
             turn_start: false,
             response: false,
@@ -209,9 +206,12 @@ fn _msedge_tts_split_async<T: AsyncRead + AsyncWrite + Unpin>(
     ))
 }
 
+type WebSocketSender<T> =
+    async_tungstenite::WebSocketSender<async_tungstenite::async_std::ClientStream<T>>;
+
 /// Async TTS Stream Sender
 pub struct SenderAsync<T> {
-    sink: SplitSink<WebSocketStreamAsync<T>, tungstenite::Message>,
+    sender: WebSocketSender<T>,
     can_read: Arc<async_lock::Mutex<bool>>,
 }
 
@@ -226,8 +226,8 @@ impl<T: AsyncRead + AsyncWrite + Unpin> SenderAsync<T> {
         let mut can_read = self.can_read.lock().await;
         let config_message = build_config_message(config);
         let ssml_message = build_ssml_message(text, config);
-        self.sink.send(config_message).await?;
-        self.sink.send(ssml_message).await?;
+        self.sender.send(config_message).await?;
+        self.sender.send(ssml_message).await?;
         *can_read = true;
         Ok(())
     }
@@ -238,9 +238,12 @@ impl<T: AsyncRead + AsyncWrite + Unpin> SenderAsync<T> {
     }
 }
 
+type WebSocketReceiver<T> =
+    async_tungstenite::WebSocketReceiver<async_tungstenite::async_std::ClientStream<T>>;
+
 /// Async TTS Stream Reader
 pub struct ReaderAsync<T> {
-    stream: SplitStream<WebSocketStreamAsync<T>>,
+    receiver: WebSocketReceiver<T>,
     can_read: Arc<async_lock::Mutex<bool>>,
     turn_start: bool,
     response: bool,
@@ -256,7 +259,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin> ReaderAsync<T> {
             async_io::Timer::after(Duration::from_millis(1)).await;
         }
 
-        let message = self.stream.next().await;
+        let message = self.receiver.next().await;
         if let Some(message) = message {
             let message = message?;
             let message = process_message(
