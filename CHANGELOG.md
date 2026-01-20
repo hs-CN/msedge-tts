@@ -1,10 +1,14 @@
+# 0.2.5
+try to fix https://github.com/hs-CN/msedge-tts/issues/8  
+thanks @[icsboyx](https://github.com/icsboyx)
 # 0.2.4
 add derive `Clone` for struct `Voice` and struct `VoiceTag`;  
 add derive `Clone`,`serde::Deserialize`,`serde::Serialize` for struct `SpeechConfig`;
 # 0.2.3
 try to fix china mainland 403 forbidden issue.
 solution from:
-https://github.com/rany2/edge-tts/issues/290#issuecomment-2464956570
+https://github.com/rany2/edge-tts/issues/290#issuecomment-2464956570  
+thanks @[super1207](https://github.com/super1207)
 
 dependencies update:
 > `async-io` from `2.3.4` to `2.4.0`;  
