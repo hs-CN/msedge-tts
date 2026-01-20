@@ -1,5 +1,6 @@
 # 0.3.0
-dependencies update:  
+## rust edition update to 2024
+## dependencies update:  
 async-io "2.4.0" -> "2.6.0"  
 async-lock "3.4.0" -> "3.4.2"  
 async-std "1.13.0" -> "1.13.2"  
