@@ -1,15 +1,22 @@
 //! TTS Client module
 
-use super::{
-    build_config_message, build_ssml_message, process_message,
-    proxy::{ProxyAsyncStream, ProxyStream},
-    websocket_connect, websocket_connect_async, websocket_connect_proxy,
-    websocket_connect_proxy_async, AudioMetadata, ProcessedMessage, SpeechConfig, WebSocketStream,
-    WebSocketStreamAsync,
+use {
+    super::{
+        AudioMetadata, ProcessedMessage, SpeechConfig, WebSocketStream, WebSocketStreamAsync,
+        build_config_message, build_ssml_message, process_message,
+        proxy::{ProxyAsyncStream, ProxyStream},
+        websocket_connect, websocket_connect_async, websocket_connect_proxy,
+        websocket_connect_proxy_async,
+    },
+    crate::error::Result,
+    futures_util::{SinkExt, StreamExt},
+    http::Uri,
+    std::io::{Read, Write},
+    tokio::{
+        io::{AsyncRead, AsyncWrite},
+        net::TcpStream,
+    },
 };
-use crate::error::Result;
-use futures_util::{AsyncRead, AsyncWrite};
-use std::io::{Read, Write};
 
 /// Sync Client
 pub struct MSEdgeTTSClient<T: Read + Write>(WebSocketStream<T>);
@@ -70,8 +77,6 @@ impl<T: AsyncRead + AsyncWrite + Unpin> MSEdgeTTSClientAsync<T> {
         text: &str,
         config: &SpeechConfig,
     ) -> Result<SynthesizedAudio> {
-        use futures_util::StreamExt;
-
         let config_message = build_config_message(config);
         let ssml_message = build_ssml_message(text, config);
         self.0.send(config_message).await?;
@@ -142,7 +147,7 @@ pub fn connect() -> Result<MSEdgeTTSClient<std::net::TcpStream>> {
 /// `socks5`: SOCKS5 Proxy.  
 /// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
 pub fn connect_proxy(
-    proxy: http::Uri,
+    proxy: Uri,
     username: Option<&str>,
     password: Option<&str>,
 ) -> Result<MSEdgeTTSClient<ProxyStream>> {
@@ -152,7 +157,7 @@ pub fn connect_proxy(
 }
 
 /// Create Async TTS [Client](MSEdgeTTSClientAsync)
-pub async fn connect_async() -> Result<MSEdgeTTSClientAsync<async_std::net::TcpStream>> {
+pub async fn connect_async() -> Result<MSEdgeTTSClientAsync<TcpStream>> {
     Ok(MSEdgeTTSClientAsync(websocket_connect_async().await?))
 }
 
@@ -167,7 +172,7 @@ pub async fn connect_async() -> Result<MSEdgeTTSClientAsync<async_std::net::TcpS
 /// `socks5`: SOCKS5 Proxy.  
 /// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
 pub async fn connect_proxy_async(
-    proxy: http::Uri,
+    proxy: Uri,
     username: Option<&str>,
     password: Option<&str>,
 ) -> Result<MSEdgeTTSClientAsync<ProxyAsyncStream>> {

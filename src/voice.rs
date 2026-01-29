@@ -5,8 +5,10 @@
 //! Use [get_voices_list_proxy] function to get all available voices with proxy.  
 //! Use [get_voices_list_proxy_async] function to get all available voices with proxy asynchronously.
 
-use crate::{constants, error::Result};
-use isahc::{config::Configurable, AsyncReadResponseExt, ReadResponseExt, RequestExt};
+use {
+    crate::{constants, error::Result},
+    reqwest::{Client, Error as ReqwestError, Proxy, RequestBuilder},
+};
 
 /// Voice category tags and personalities tags
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
@@ -60,13 +62,12 @@ impl From<&str> for Voice {
 }
 
 /// Get all available voices
+#[cfg(feature = "blocking")]
 pub fn get_voices_list() -> Result<Vec<Voice>> {
-    Ok(build_request(None, None, None)
-        .map_err(isahc::Error::from)?
-        .send()?
-        .json()?)
+    Ok(build_request_blocking(None, None, None)?.send()?.json()?)
 }
 
+//noinspection SpellCheckingInspection
 /// Get all available voices with proxy.
 ///
 /// **docs copy from isahc**  
@@ -79,22 +80,21 @@ pub fn get_voices_list() -> Result<Vec<Voice>> {
 /// `socks4a`: SOCKS4a Proxy. Proxy resolves URL hostname.  
 /// `socks5`: SOCKS5 Proxy.  
 /// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
+#[cfg(feature = "blocking")]
 pub fn get_voices_list_proxy(
-    proxy: isahc::http::Uri,
+    proxy: &str,
     username: Option<&str>,
     password: Option<&str>,
 ) -> Result<Vec<Voice>> {
-    Ok(build_request(Some(proxy), username, password)
-        .map_err(isahc::Error::from)?
+    Ok(build_request_blocking(Some(proxy), username, password)?
         .send()?
         .json()?)
 }
 
 /// Get all available voices asynchronously
 pub async fn get_voices_list_async() -> Result<Vec<Voice>> {
-    Ok(build_request(None, None, None)
-        .map_err(isahc::Error::from)?
-        .send_async()
+    Ok(build_request(None, None, None)?
+        .send()
         .await?
         .json()
         .await?)
@@ -113,42 +113,72 @@ pub async fn get_voices_list_async() -> Result<Vec<Voice>> {
 /// `socks5`: SOCKS5 Proxy.  
 /// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
 pub async fn get_voices_list_proxy_async(
-    proxy: isahc::http::Uri,
+    proxy: &str,
     username: Option<&str>,
     password: Option<&str>,
 ) -> Result<Vec<Voice>> {
-    Ok(build_request(Some(proxy), username, password)
-        .map_err(isahc::Error::from)?
-        .send_async()
+    Ok(build_request(Some(proxy), username, password)?
+        .send()
         .await?
         .json()
         .await?)
 }
 
 fn build_request(
-    proxy: Option<isahc::http::Uri>,
+    proxy_url: Option<&str>,
     username: Option<&str>,
     password: Option<&str>,
-) -> std::result::Result<isahc::Request<()>, isahc::http::Error> {
-    let mut builder = isahc::Request::get(constants::VOICE_LIST_URL)
+) -> Result<RequestBuilder, ReqwestError> {
+    let mut builder = Client::builder();
+
+    if let Some(proxy_url) = proxy_url {
+        let mut proxy = Proxy::all(proxy_url)?;
+        if let Some(username) = username
+            && let Some(password) = password
+        {
+            proxy = proxy.basic_auth(username, password);
+        }
+        builder = builder.proxy(proxy);
+    }
+
+    Ok(builder
+        .build()?
+        .get(constants::VOICE_LIST_URL)
         .header("Sec-CH-UA", constants::SEC_CH_UA)
         .header("Sec-CH-UA-Mobile", constants::SEC_CH_UA_MOBILE)
         .header("User-Agent", constants::USER_AGENT)
         .header("Sec-CH-UA-Platform", constants::SEC_CH_UA_PLATFORM)
         .header("Sec-Fetch-Site", constants::SEC_FETCH_SITE)
         .header("Sec-Fetch-Mode", constants::SEC_FETCH_MODE)
-        .header("Sec-Fetch-Dest", constants::SEC_FETCH_DEST);
+        .header("Sec-Fetch-Dest", constants::SEC_FETCH_DEST))
+}
 
-    if proxy.is_some() {
-        builder = builder.proxy(proxy);
-        if username.is_some() && password.is_some() {
-            builder = builder.proxy_authentication(isahc::auth::Authentication::basic());
-            builder = builder.proxy_credentials(isahc::auth::Credentials::new(
-                username.unwrap(),
-                password.unwrap(),
-            ));
+#[cfg(feature = "blocking")]
+fn build_request_blocking(
+    proxy_url: Option<&str>,
+    username: Option<&str>,
+    password: Option<&str>,
+) -> Result<reqwest::blocking::RequestBuilder, ReqwestError> {
+    let mut builder = reqwest::blocking::Client::builder();
+
+    if let Some(proxy_url) = proxy_url {
+        let mut proxy = Proxy::all(proxy_url)?;
+        if let Some(username) = username
+            && let Some(password) = password
+        {
+            proxy = proxy.basic_auth(username, password);
         }
+        builder = builder.proxy(proxy);
     }
 
-    builder.body(())
+    Ok(builder
+        .build()?
+        .get(constants::VOICE_LIST_URL)
+        .header("Sec-CH-UA", constants::SEC_CH_UA)
+        .header("Sec-CH-UA-Mobile", constants::SEC_CH_UA_MOBILE)
+        .header("User-Agent", constants::USER_AGENT)
+        .header("Sec-CH-UA-Platform", constants::SEC_CH_UA_PLATFORM)
+        .header("Sec-Fetch-Site", constants::SEC_FETCH_SITE)
+        .header("Sec-Fetch-Mode", constants::SEC_FETCH_MODE)
+        .header("Sec-Fetch-Dest", constants::SEC_FETCH_DEST))
 }

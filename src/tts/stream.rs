@@ -1,18 +1,30 @@
 //! TTS Stream module
 
-use super::{
-    super::error::Result,
-    build_config_message, build_ssml_message, process_message,
-    proxy::{ProxyAsyncStream, ProxyStream},
-    websocket_connect, websocket_connect_async, websocket_connect_proxy,
-    websocket_connect_proxy_async, AudioMetadata, ProcessedMessage, SpeechConfig, WebSocketStream,
-    WebSocketStreamAsync,
-};
-use futures_util::{AsyncRead, AsyncWrite, StreamExt};
-use std::{
-    io::{Read, Write},
-    sync::{Arc, Condvar, Mutex},
-    time::Duration,
+use {
+    super::{
+        super::error::Result,
+        AudioMetadata, ProcessedMessage, SpeechConfig, WebSocketStream, WebSocketStreamAsync,
+        build_config_message, build_ssml_message, process_message,
+        proxy::{ProxyAsyncStream, ProxyStream},
+        websocket_connect, websocket_connect_async, websocket_connect_proxy,
+        websocket_connect_proxy_async,
+    },
+    futures_util::{
+        SinkExt, StreamExt,
+        stream::{SplitSink, SplitStream},
+    },
+    http::Uri,
+    std::{
+        io::{Read, Write},
+        sync::{Arc, Condvar, Mutex},
+        time::Duration,
+    },
+    tokio::{
+        io::{AsyncRead, AsyncWrite},
+        net::TcpStream,
+        time::sleep,
+    },
+    tokio_tungstenite::{MaybeTlsStream, tungstenite::Message},
 };
 
 /// Synthesized Stream Response
@@ -53,7 +65,7 @@ pub fn msedge_tts_split() -> Result<(Sender<std::net::TcpStream>, Reader<std::ne
 /// `socks5`: SOCKS5 Proxy.  
 /// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
 pub fn msedge_tts_split_proxy(
-    proxy: http::Uri,
+    proxy: Uri,
     username: Option<&str>,
     password: Option<&str>,
 ) -> Result<(Sender<ProxyStream>, Reader<ProxyStream>)> {
@@ -161,10 +173,7 @@ impl<T: Read + Write> Reader<T> {
 }
 
 /// Create Async TTS Stream [SenderAsync] and [ReaderAsync]
-pub async fn msedge_tts_split_async() -> Result<(
-    SenderAsync<async_std::net::TcpStream>,
-    ReaderAsync<async_std::net::TcpStream>,
-)> {
+pub async fn msedge_tts_split_async() -> Result<(SenderAsync<TcpStream>, ReaderAsync<TcpStream>)> {
     _msedge_tts_split_async(websocket_connect_async().await?)
 }
 
@@ -179,7 +188,7 @@ pub async fn msedge_tts_split_async() -> Result<(
 /// `socks5`: SOCKS5 Proxy.  
 /// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
 pub async fn msedge_tts_split_proxy_async(
-    proxy: http::Uri,
+    proxy: Uri,
     username: Option<&str>,
     password: Option<&str>,
 ) -> Result<(SenderAsync<ProxyAsyncStream>, ReaderAsync<ProxyAsyncStream>)> {
@@ -206,8 +215,7 @@ fn _msedge_tts_split_async<T: AsyncRead + AsyncWrite + Unpin>(
     ))
 }
 
-type WebSocketSender<T> =
-    async_tungstenite::WebSocketSender<async_tungstenite::async_std::ClientStream<T>>;
+type WebSocketSender<T> = SplitSink<tokio_tungstenite::WebSocketStream<MaybeTlsStream<T>>, Message>;
 
 /// Async TTS Stream Sender
 pub struct SenderAsync<T> {
@@ -221,7 +229,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin> SenderAsync<T> {
     /// [read](ReaderAsync::read) will block before you call a [send](Self::send).
     pub async fn send(&mut self, text: &str, config: &SpeechConfig) -> Result<()> {
         while !self.can_send().await {
-            async_io::Timer::after(Duration::from_millis(1)).await;
+            sleep(Duration::from_millis(1)).await;
         }
         let mut can_read = self.can_read.lock().await;
         let config_message = build_config_message(config);
@@ -238,8 +246,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin> SenderAsync<T> {
     }
 }
 
-type WebSocketReceiver<T> =
-    async_tungstenite::WebSocketReceiver<async_tungstenite::async_std::ClientStream<T>>;
+type WebSocketReceiver<T> = SplitStream<tokio_tungstenite::WebSocketStream<MaybeTlsStream<T>>>;
 
 /// Async TTS Stream Reader
 pub struct ReaderAsync<T> {
@@ -256,7 +263,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin> ReaderAsync<T> {
     /// [read](Self::read) will block before you call a [send](SenderAsync::send).
     pub async fn read(&mut self) -> Result<Option<SynthesizedResponse>> {
         while !self.can_read().await {
-            async_io::Timer::after(Duration::from_millis(1)).await;
+            sleep(Duration::from_millis(1)).await;
         }
 
         let message = self.receiver.next().await;

@@ -12,27 +12,54 @@ exclude = ["examples/*"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[example]]
+name = "get_voices_list"
+required-features = ["blocking"]
+
+[[example]]
+name = "get_voices_list_proxy"
+required-features = ["blocking"]
+
+[[example]]
+name = "play"
+required-features = ["blocking"]
+
+[[example]]
+name = "synthesize"
+required-features = ["blocking"]
+
+[[example]]
+name = "synthesize_proxy"
+required-features = ["blocking"]
+
+[[example]]
+name = "synthesize_stream"
+required-features = ["blocking"]
+
+[[example]]
+name = "synthesize_stream_proxy"
+required-features = ["blocking"]
+
+[features]
+blocking = ["reqwest/blocking"]
 
 [dependencies]
-async-io = "2.6.0"
 async-lock = "3.4.2"
-async-native-tls = "0.5.0"
-async-std = "1.13.2"
-async-tungstenite = { version = "0.32.1", features = ["async-native-tls"] }
 base64 = "0.22.1"
 chrono = "0.4.43"
 futures-util = "0.3.31"
 http = "1.4.0"
 httparse = "1.10.1"
-isahc = { version = "1.7.2", features = ["json"] }
-native-tls = "0.2.14"
+reqwest = { version = "0.13.1",default-features = false,features = ["http2", "json", "native-tls"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 sha2 = "0.10.9"
 thiserror = "2.0.18"
-tungstenite = { version = "0.28.0", features = ["native-tls"] }
+tokio = { version = "1.49.0",features = ["io-std", "net"] }
+tokio-native-tls = "0.3.1"
+tokio-tungstenite = { version = "0.28.0", features = ["native-tls"] }
 uuid = { version = "1.19.0", features = ["fast-rng", "v4"] }
 
 [dev-dependencies]
-smol = "2.0.2"
 rodio = "0.21.1"
+tokio = {version = "1.49.0", features = ["macros", "rt-multi-thread"]}

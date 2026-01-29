@@ -1,41 +1,40 @@
-use futures_util::{AsyncRead, AsyncWrite};
-use msedge_tts::{
-    tts::{
-        client::{connect_proxy_async, MSEdgeTTSClientAsync},
-        SpeechConfig,
+use {
+    msedge_tts::{
+        tts::{
+            SpeechConfig,
+            client::{MSEdgeTTSClientAsync, connect_proxy_async},
+        },
+        voice::get_voices_list_async,
     },
-    voice::get_voices_list_async,
+    std::time::Instant,
+    tokio::io::{AsyncRead, AsyncWrite},
 };
-use std::time::Instant;
 
-fn main() {
-    smol::block_on(async {
-        println!("get voices list...");
-        let voices = get_voices_list_async().await.unwrap();
-        for voice in &voices {
-            if voice.name.contains("YunyangNeural") {
-                println!("choose '{}' to synthesize...", voice.name);
-                let config = SpeechConfig::from(voice);
-                let tts = connect_proxy_async("localhost:10809".parse().unwrap(), None, None)
-                    .await
-                    .unwrap();
-                synthesize(tts, &config).await;
+#[tokio::main]
+async fn main() {
+    println!("get voices list...");
+    let voices = get_voices_list_async().await.unwrap();
+    for voice in &voices {
+        if voice.name.contains("YunyangNeural") {
+            println!("choose '{}' to synthesize...", voice.name);
+            let config = SpeechConfig::from(voice);
+            let tts = connect_proxy_async("localhost:10809".parse().unwrap(), None, None)
+                .await
+                .unwrap();
+            synthesize(tts, &config).await;
 
-                let tts =
-                    connect_proxy_async("socks4a://localhost:10808".parse().unwrap(), None, None)
-                        .await
-                        .unwrap();
-                synthesize(tts, &config).await;
+            let tts = connect_proxy_async("socks4a://localhost:10808".parse().unwrap(), None, None)
+                .await
+                .unwrap();
+            synthesize(tts, &config).await;
 
-                let tts =
-                    connect_proxy_async("socks5h://localhost:10808".parse().unwrap(), None, None)
-                        .await
-                        .unwrap();
-                synthesize(tts, &config).await;
-                break;
-            }
+            let tts = connect_proxy_async("socks5h://localhost:10808".parse().unwrap(), None, None)
+                .await
+                .unwrap();
+            synthesize(tts, &config).await;
+            break;
         }
-    });
+    }
 }
 
 async fn synthesize<T: AsyncRead + AsyncWrite + Unpin>(

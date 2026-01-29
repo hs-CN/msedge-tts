@@ -1,16 +1,24 @@
-use crate::error::{HttpProxyError, Socks4ProxyError, Socks5ProxyError};
-use base64::Engine;
-use futures_util::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use std::io::{Read, Write};
-use std::pin::pin;
-use std::result::Result;
+use {
+    crate::error::{HttpProxyError, Socks4ProxyError, Socks5ProxyError},
+    base64::Engine,
+    std::{
+        io::{Read, Result as IoResult, Write},
+        pin::pin,
+        task::Poll,
+    },
+    tokio::{
+        io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf},
+        net::{TcpStream, lookup_host},
+    },
+    tokio_native_tls::{TlsConnector, TlsStream, native_tls},
+};
 
 pub enum ProxyStream {
     TcpStream(std::net::TcpStream),
     TlsStream(native_tls::TlsStream<std::net::TcpStream>),
 }
 
-impl std::io::Read for ProxyStream {
+impl Read for ProxyStream {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         match self {
             Self::TcpStream(stream) => stream.read(buf),
@@ -19,7 +27,7 @@ impl std::io::Read for ProxyStream {
     }
 }
 
-impl std::io::Write for ProxyStream {
+impl Write for ProxyStream {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         match self {
             Self::TcpStream(stream) => stream.write(buf),
@@ -36,16 +44,16 @@ impl std::io::Write for ProxyStream {
 }
 
 pub enum ProxyAsyncStream {
-    TcpStream(async_std::net::TcpStream),
-    TlsStream(async_native_tls::TlsStream<async_std::net::TcpStream>),
+    TcpStream(TcpStream),
+    TlsStream(TlsStream<TcpStream>),
 }
 
 impl AsyncRead for ProxyAsyncStream {
     fn poll_read(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
-        buf: &mut [u8],
-    ) -> std::task::Poll<std::io::Result<usize>> {
+        buf: &mut ReadBuf,
+    ) -> Poll<IoResult<()>> {
         match self.get_mut() {
             Self::TcpStream(stream) => pin!(stream).poll_read(cx, buf),
             Self::TlsStream(stream) => pin!(stream).poll_read(cx, buf),
@@ -58,7 +66,7 @@ impl AsyncWrite for ProxyAsyncStream {
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
         buf: &[u8],
-    ) -> std::task::Poll<std::io::Result<usize>> {
+    ) -> Poll<IoResult<usize>> {
         match self.get_mut() {
             Self::TcpStream(stream) => pin!(stream).poll_write(cx, buf),
             Self::TlsStream(stream) => pin!(stream).poll_write(cx, buf),
@@ -68,20 +76,20 @@ impl AsyncWrite for ProxyAsyncStream {
     fn poll_flush(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<std::io::Result<()>> {
+    ) -> Poll<IoResult<()>> {
         match self.get_mut() {
             Self::TcpStream(stream) => pin!(stream).poll_flush(cx),
             Self::TlsStream(stream) => pin!(stream).poll_flush(cx),
         }
     }
 
-    fn poll_close(
+    fn poll_shutdown(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<std::io::Result<()>> {
+    ) -> Poll<IoResult<()>> {
         match self.get_mut() {
-            Self::TcpStream(stream) => pin!(stream).poll_close(cx),
-            Self::TlsStream(stream) => pin!(stream).poll_close(cx),
+            Self::TcpStream(stream) => pin!(stream).poll_shutdown(cx),
+            Self::TlsStream(stream) => pin!(stream).poll_shutdown(cx),
         }
     }
 }
@@ -91,7 +99,7 @@ pub fn http_proxy(
     proxy: http::Uri,
     username: Option<&str>,
     password: Option<&str>,
-) -> std::result::Result<ProxyStream, HttpProxyError> {
+) -> Result<ProxyStream, HttpProxyError> {
     if proxy.host().is_none() {
         return Err(HttpProxyError::NoProxyServerHostName(proxy));
     }
@@ -180,17 +188,19 @@ pub async fn http_proxy_async(
 
     let mut stream = match proxy.scheme_str() {
         None => {
-            let stream = async_std::net::TcpStream::connect((proxy_host, proxy_port)).await?;
+            let stream = TcpStream::connect((proxy_host, proxy_port)).await?;
             ProxyAsyncStream::TcpStream(stream)
         }
         Some(scheme) => match scheme.to_lowercase().as_str() {
             "http" => {
-                let stream = async_std::net::TcpStream::connect((proxy_host, proxy_port)).await?;
+                let stream = TcpStream::connect((proxy_host, proxy_port)).await?;
                 ProxyAsyncStream::TcpStream(stream)
             }
             "https" => {
-                let stream = async_std::net::TcpStream::connect((proxy_host, proxy_port)).await?;
-                let stream = async_native_tls::connect(proxy_host, stream).await?;
+                let stream = TcpStream::connect((proxy_host, proxy_port)).await?;
+                let stream = TlsConnector::from(native_tls::TlsConnector::new()?)
+                    .connect(proxy_host, stream)
+                    .await?;
                 ProxyAsyncStream::TlsStream(stream)
             }
             _ => return Err(HttpProxyError::NotSupportedScheme(proxy)),
@@ -272,7 +282,7 @@ pub fn socks4_proxy(
     let mut stream = std::net::TcpStream::connect((proxy_host, proxy_port))?;
     let request = match proxy.scheme_str().unwrap().to_lowercase().as_str() {
         "socks4" => {
-            let mut socket_addrs = (target_host, 443).to_socket_addrs()?;
+            let mut socket_addrs = ToSocketAddrs::to_socket_addrs(&(target_host, 443))?;
             let ipv4 = loop {
                 match socket_addrs.next() {
                     Some(socket_addr) => match socket_addr.ip() {
@@ -310,8 +320,6 @@ pub async fn socks4_proxy_async(
     proxy: http::Uri,
     username: Option<&str>,
 ) -> Result<ProxyAsyncStream, Socks4ProxyError> {
-    use async_std::net::ToSocketAddrs;
-
     if proxy.scheme_str().is_none() {
         return Err(Socks4ProxyError::NoScheme(proxy));
     }
@@ -327,10 +335,10 @@ pub async fn socks4_proxy_async(
     }
     let proxy_port = proxy.port_u16().unwrap();
 
-    let mut stream = async_std::net::TcpStream::connect((proxy_host, proxy_port)).await?;
+    let mut stream = TcpStream::connect((proxy_host, proxy_port)).await?;
     let request = match proxy.scheme_str().unwrap().to_lowercase().as_str() {
         "socks4" => {
-            let mut socket_addrs = (target_host, 443).to_socket_addrs().await?;
+            let mut socket_addrs = lookup_host((target_host, 443)).await?;
             let ipv4 = loop {
                 match socket_addrs.next() {
                     Some(socket_addr) => match socket_addr.ip() {
@@ -456,7 +464,7 @@ pub fn socks5_proxy(
     // Client connection
     let request = match proxy.scheme_str().unwrap().to_lowercase().as_str() {
         "socks5" => {
-            let socket_addr = (target_host, 443).to_socket_addrs()?.next();
+            let socket_addr = ToSocketAddrs::to_socket_addrs(&(target_host, 443))?.next();
             if let Some(ip_addr) = socket_addr {
                 build_socks5_connection_request(target_host, Some(ip_addr.ip()))
             } else {
@@ -496,7 +504,7 @@ pub fn socks5_proxy(
                     }
                 };
 
-                let socket_addr = stream.peer_addr().unwrap();
+                let socket_addr = stream.peer_addr()?;
                 if socket_addr.ip() == ip && socket_addr.port() == port {
                     Ok(ProxyStream::TcpStream(stream))
                 } else {
@@ -524,8 +532,6 @@ pub async fn socks5_proxy_asnyc(
     username: Option<&str>,
     password: Option<&str>,
 ) -> Result<ProxyAsyncStream, Socks5ProxyError> {
-    use async_std::net::ToSocketAddrs;
-
     if proxy.scheme_str().is_none() {
         return Err(Socks5ProxyError::NoScheme(proxy));
     }
@@ -541,7 +547,7 @@ pub async fn socks5_proxy_asnyc(
     }
     let proxy_port = proxy.port_u16().unwrap();
 
-    let mut stream = async_std::net::TcpStream::connect((proxy_host, proxy_port)).await?;
+    let mut stream = TcpStream::connect((proxy_host, proxy_port)).await?;
 
     // Client greeting: VER (1), NAUTH (1), AUTH (NAUTH)
     let mut bytes = vec![0x05];
@@ -580,7 +586,7 @@ pub async fn socks5_proxy_asnyc(
     // Client connection
     let request = match proxy.scheme_str().unwrap().to_lowercase().as_str() {
         "socks5" => {
-            let socket_addr = (target_host, 443).to_socket_addrs().await?.next();
+            let socket_addr = lookup_host((target_host, 443)).await?.next();
             if let Some(ip_addr) = socket_addr {
                 build_socks5_connection_request(target_host, Some(ip_addr.ip()))
             } else {
@@ -620,11 +626,11 @@ pub async fn socks5_proxy_asnyc(
                     }
                 };
 
-                let socket_addr = stream.peer_addr().unwrap();
+                let socket_addr = stream.peer_addr()?;
                 if socket_addr.ip() == ip && socket_addr.port() == port {
                     Ok(ProxyAsyncStream::TcpStream(stream))
                 } else {
-                    let stream = async_std::net::TcpStream::connect((ip, port)).await?;
+                    let stream = TcpStream::connect((ip, port)).await?;
                     Ok(ProxyAsyncStream::TcpStream(stream))
                 }
             }

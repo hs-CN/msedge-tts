@@ -12,7 +12,7 @@ For example:
     
     fn main() {
         let voices = get_voices_list().unwrap();
-        let speechConfig = SpeechConfig::from(&voices[0]);
+        let speech_config = SpeechConfig::from(&voices[0]);
     }
     ```
     You can also create `SpeechConfig` by yourself. Make sure you know the right **voice name** and **audio format**.
@@ -44,21 +44,20 @@ For example:
     ```rust
     use msedge_tts::{tts::client::connect_async, tts::SpeechConfig, voice::get_voices_list_async};
     
-    fn main() {
-        smol::block_on(async {
-            let voices = get_voices_list_async().await.unwrap();
-            for voice in &voices {
-                if voice.name.contains("YunyangNeural") {
-                    let config = SpeechConfig::from(voice);
-                    let mut tts = connect_async().await.unwrap();
-                    let audio = tts
-                        .synthesize("Hello, World! 你好，世界！", &config)
-                        .await
-                        .unwrap();
-                    break;
-                }
+    #[tokio::main]
+    async fn main() {
+        let voices = get_voices_list_async().await.unwrap();
+        for voice in &voices {
+             if voice.name.contains("YunyangNeural") {
+                let config = SpeechConfig::from(voice);
+                let mut tts = connect_async().await.unwrap();
+                let audio = tts
+                    .synthesize("Hello, World! 你好，世界！", &config)
+                    .await
+                    .unwrap();
+                break;
             }
-        });
+        }
     }
     ```
     ### Sync Stream
@@ -143,62 +142,60 @@ For example:
         },
     };
     
-    fn main() {
-        smol::block_on(async {
-            let voices = get_voices_list_async().await.unwrap();
-            for voice in &voices {
-                if voice.name.contains("YunyangNeural") {
-                    let config = SpeechConfig::from(voice);
-                    let (mut sender, mut reader) = msedge_tts_split_async().await.unwrap();
+    #[tokio::main]
+    async fn main() {
+        let voices = get_voices_list_async().await.unwrap();
+        for voice in &voices {
+            if voice.name.contains("YunyangNeural") {
+                let config = SpeechConfig::from(voice);
+                let (mut sender, mut reader) = msedge_tts_split_async().await.unwrap();
     
-                    let signal = Arc::new(AtomicBool::new(false));
-                    let end = signal.clone();
-                    smol::spawn(async move {
-                        sender
-                            .send("Hello, World! 你好，世界！", &config)
-                            .await
-                            .unwrap();
-                        println!("synthesizing...1");
-                        sender
-                            .send("Hello, World! 你好，世界！", &config)
-                            .await
-                            .unwrap();
-                        println!("synthesizing...2");
-                        sender
-                            .send("Hello, World! 你好，世界！", &config)
-                            .await
-                            .unwrap();
-                        println!("synthesizing...3");
-                        sender
-                            .send("Hello, World! 你好，世界！", &config)
-                            .await
-                            .unwrap();
-                        println!("synthesizing...4");
-                        end.store(true, Ordering::Relaxed);
-                    })
-                    .detach();
+                let signal = Arc::new(AtomicBool::new(false));
+                let end = signal.clone();
+                tokio::spawn(async move {
+                    sender
+                        .send("Hello, World! 你好，世界！", &config)
+                        .await
+                        .unwrap();
+                    println!("synthesizing...1");
+                    sender
+                        .send("Hello, World! 你好，世界！", &config)
+                        .await
+                        .unwrap();
+                    println!("synthesizing...2");
+                    sender
+                        .send("Hello, World! 你好，世界！", &config)
+                        .await
+                        .unwrap();
+                    println!("synthesizing...3");
+                    sender
+                        .send("Hello, World! 你好，世界！", &config)
+                        .await
+                        .unwrap();
+                    println!("synthesizing...4");
+                    end.store(true, Ordering::Relaxed);
+                });
     
-                    loop {
-                        if signal.load(Ordering::Relaxed) && !reader.can_read().await {
-                            break;
-                        }
-                        let audio = reader.read().await.unwrap();
-                        if let Some(audio) = audio {
-                            match audio {
-                                SynthesizedResponse::AudioBytes(_) => {
-                                    println!("read bytes")
-                                }
-                                SynthesizedResponse::AudioMetadata(_) => {
-                                    println!("read metadata")
-                                }
+                loop {
+                    if signal.load(Ordering::Relaxed) && !reader.can_read().await {
+                        break;
+                    }
+                    let audio = reader.read().await.unwrap();
+                    if let Some(audio) = audio {
+                        match audio {
+                            SynthesizedResponse::AudioBytes(_) => {
+                                println!("read bytes")
                             }
-                        } else {
-                            println!("read None");
+                            SynthesizedResponse::AudioMetadata(_) => {
+                                println!("read metadata")
+                            }
                         }
+                    } else {
+                        println!("read None");
                     }
                 }
             }
-        });
+        }
     }
     ```
 

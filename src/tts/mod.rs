@@ -1,17 +1,24 @@
 //! TTS Client and Stream, SpeechConfig, Response Type.
 
 pub mod client;
+mod proxy;
 pub mod stream;
 
-mod proxy;
-use crate::error::{Error, ProxyError, Result};
-use proxy::{
-    http_proxy, http_proxy_async, socks4_proxy, socks4_proxy_async, socks5_proxy,
-    socks5_proxy_asnyc, ProxyAsyncStream, ProxyStream,
+use {
+    crate::error::{Error, ProxyError, Result},
+    proxy::{
+        ProxyAsyncStream, ProxyStream, http_proxy, http_proxy_async, socks4_proxy,
+        socks4_proxy_async, socks5_proxy, socks5_proxy_asnyc,
+    },
+    sha2::Digest,
+    tokio::net::TcpStream,
+    tokio_tungstenite::{
+        MaybeTlsStream, client_async_tls, connect_async,
+        tungstenite::{Bytes, Message, client_tls, connect, handshake::client::Request},
+    },
 };
 
-use sha2::Digest;
-
+//noinspection SpellCheckingInspection
 /// Synthesis Config
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct SpeechConfig {
@@ -62,6 +69,7 @@ pub struct SpeechConfig {
     pub volume: i32,
 }
 
+//noinspection SpellCheckingInspection
 impl From<&super::voice::Voice> for SpeechConfig {
     fn from(voice: &super::voice::Voice) -> Self {
         let audio_output_format = if let Some(ref output_format) = voice.suggested_codec {
@@ -124,18 +132,18 @@ impl AudioMetadata {
 }
 
 enum ProcessedMessage {
-    AudioBytes((tungstenite::Bytes, usize)),
+    AudioBytes((Bytes, usize)),
     AudioMetadata(Vec<AudioMetadata>),
 }
 
 fn process_message(
-    message: tungstenite::Message,
+    message: Message,
     turn_start: &mut bool,
     response: &mut bool,
     turn_end: &mut bool,
 ) -> Result<Option<ProcessedMessage>> {
     match message {
-        tungstenite::Message::Text(text) => {
+        Message::Text(text) => {
             if text.contains("audio.metadata") {
                 if let Some(index) = text.find("\r\n\r\n") {
                     let metadata = AudioMetadata::from_str(&text[index + 4..])?;
@@ -159,7 +167,7 @@ fn process_message(
                 )))
             }
         }
-        tungstenite::Message::Binary(bytes) => {
+        Message::Binary(bytes) => {
             if *turn_start || *response {
                 let header_len = u16::from_be_bytes([bytes[0], bytes[1]]) as usize;
                 Ok(Some(ProcessedMessage::AudioBytes((bytes, header_len + 2))))
@@ -167,7 +175,7 @@ fn process_message(
                 Ok(None)
             }
         }
-        tungstenite::Message::Close(_) => {
+        Message::Close(_) => {
             *turn_end = true;
             Ok(None)
         }
@@ -178,6 +186,7 @@ fn process_message(
     }
 }
 
+//noinspection SpellCheckingInspection
 // try to fix china mainland 403 forbidden issue
 // solution from:
 // https://github.com/rany2/edge-tts/issues/290#issuecomment-2464956570
@@ -200,10 +209,11 @@ fn gen_sec_ms_gec() -> String {
     hex_str
 }
 
-fn build_websocket_request() -> Result<tungstenite::handshake::client::Request> {
-    use super::constants;
-    use tungstenite::client::IntoClientRequest;
-    use tungstenite::http::header;
+fn build_websocket_request() -> Result<Request> {
+    use {
+        super::constants,
+        tokio_tungstenite::tungstenite::{client::IntoClientRequest, http::header},
+    };
 
     let uuid = uuid::Uuid::new_v4().simple().to_string();
     let sec_ms_gec = gen_sec_ms_gec();
@@ -221,30 +231,30 @@ fn build_websocket_request() -> Result<tungstenite::handshake::client::Request> 
         header::PRAGMA,
         "no-cache"
             .parse()
-            .map_err(|err| tungstenite::Error::from(http::Error::from(err)))?,
+            .map_err(|err| tokio_tungstenite::tungstenite::Error::from(http::Error::from(err)))?,
     );
     headers.insert(
         header::CACHE_CONTROL,
         "no-cache"
             .parse()
-            .map_err(|err| tungstenite::Error::from(http::Error::from(err)))?,
+            .map_err(|err| tokio_tungstenite::tungstenite::Error::from(http::Error::from(err)))?,
     );
     headers.insert(
         header::USER_AGENT,
         constants::USER_AGENT
             .parse()
-            .map_err(|err| tungstenite::Error::from(http::Error::from(err)))?,
+            .map_err(|err| tokio_tungstenite::tungstenite::Error::from(http::Error::from(err)))?,
     );
     headers.insert(
         header::ORIGIN,
         constants::ORIGIN
             .parse()
-            .map_err(|err| tungstenite::Error::from(http::Error::from(err)))?,
+            .map_err(|err| tokio_tungstenite::tungstenite::Error::from(http::Error::from(err)))?,
     );
     Ok(request)
 }
 
-fn build_config_message(config: &SpeechConfig) -> tungstenite::Message {
+fn build_config_message(config: &SpeechConfig) -> Message {
     static SPEECH_CONFIG_HEAD: &str = r#"{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"true"},"outputFormat":""#;
     static SPEECH_CONFIG_TAIL: &str = r#""}}}}"#;
     let speech_config_message = format!(
@@ -254,17 +264,13 @@ fn build_config_message(config: &SpeechConfig) -> tungstenite::Message {
         config.audio_format,
         SPEECH_CONFIG_TAIL
     );
-    tungstenite::Message::Text(speech_config_message.into())
+    Message::Text(speech_config_message.into())
 }
 
-fn build_ssml_message(text: &str, config: &SpeechConfig) -> tungstenite::Message {
+fn build_ssml_message(text: &str, config: &SpeechConfig) -> Message {
     let ssml = format!(
         "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><voice name='{}'><prosody pitch='{:+}Hz' rate='{:+}%' volume='{:+}%'>{}</prosody></voice></speak>",
-        config.voice_name,
-        config.pitch,
-        config.rate,
-        config.volume,
-        text,
+        config.voice_name, config.pitch, config.rate, config.volume, text,
     );
     let ssml_message = format!(
         "X-RequestId:{}\r\nContent-Type:application/ssml+xml\r\nX-Timestamp:{}\r\nPath:ssml\r\n\r\n{}",
@@ -272,14 +278,16 @@ fn build_ssml_message(text: &str, config: &SpeechConfig) -> tungstenite::Message
         chrono::Local::now().to_rfc2822(),
         ssml,
     );
-    tungstenite::Message::Text(ssml_message.into())
+    Message::Text(ssml_message.into())
 }
 
-type WebSocketStream<T> = tungstenite::WebSocket<tungstenite::stream::MaybeTlsStream<T>>;
+type WebSocketStream<T> = tokio_tungstenite::tungstenite::WebSocket<
+    tokio_tungstenite::tungstenite::stream::MaybeTlsStream<T>,
+>;
 
 fn websocket_connect() -> Result<WebSocketStream<std::net::TcpStream>> {
     let request = build_websocket_request()?;
-    let (websocket, _) = tungstenite::connect(request)?;
+    let (websocket, _) = connect(request)?;
     Ok(websocket)
 }
 
@@ -288,7 +296,7 @@ fn websocket_connect_proxy(
     username: Option<&str>,
     password: Option<&str>,
 ) -> Result<WebSocketStream<ProxyStream>> {
-    use tungstenite::handshake::HandshakeError;
+    use tokio_tungstenite::tungstenite::handshake::HandshakeError;
 
     let request = build_websocket_request()?;
     let stream: std::result::Result<ProxyStream, ProxyError> = match proxy.scheme_str() {
@@ -309,19 +317,18 @@ fn websocket_connect_proxy(
         None => http_proxy(request.uri().host().unwrap(), proxy, username, password)
             .map_err(|e| e.into()),
     };
-    let (websocket, _) = tungstenite::client_tls(request, stream?).map_err(|e| match e {
+    let (websocket, _) = client_tls(request, stream?).map_err(|e| match e {
         HandshakeError::Failure(e) => e,
         HandshakeError::Interrupted(_) => panic!("Bug: blocking handshake not blocked"),
     })?;
     Ok(websocket)
 }
 
-type WebSocketStreamAsync<T> =
-    async_tungstenite::WebSocketStream<async_tungstenite::async_std::ClientStream<T>>;
+type WebSocketStreamAsync<T> = tokio_tungstenite::WebSocketStream<MaybeTlsStream<T>>;
 
-async fn websocket_connect_async() -> Result<WebSocketStreamAsync<async_std::net::TcpStream>> {
+async fn websocket_connect_async() -> Result<WebSocketStreamAsync<TcpStream>> {
     let request = build_websocket_request()?;
-    let (websocket, _) = async_tungstenite::async_std::connect_async(request).await?;
+    let (websocket, _) = connect_async(request).await?;
     Ok(websocket)
 }
 
@@ -354,6 +361,6 @@ async fn websocket_connect_proxy_async(
             .await
             .map_err(|e| e.into()),
     };
-    let (websocket, _) = async_tungstenite::async_std::client_async_tls(request, stream?).await?;
+    let (websocket, _) = client_async_tls(request, stream?).await?;
     Ok(websocket)
 }
