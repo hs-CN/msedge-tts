@@ -16,46 +16,6 @@ use sha2::Digest;
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct SpeechConfig {
     pub voice_name: String,
-    /// should be one of Streaming or NonStreaming audio output formats.
-    ///
-    /// Streaming audio output formats:
-    /// + amr-wb-16000hz
-    /// + audio-16khz-16bit-32kbps-mono-opus
-    /// + audio-16khz-32kbitrate-mono-mp3
-    /// + audio-16khz-64kbitrate-mono-mp3
-    /// + audio-16khz-128kbitrate-mono-mp3
-    /// + audio-24khz-16bit-24kbps-mono-opus
-    /// + audio-24khz-16bit-48kbps-mono-opus
-    /// + audio-24khz-48kbitrate-mono-mp3
-    /// + audio-24khz-96kbitrate-mono-mp3
-    /// + audio-24khz-160kbitrate-mono-mp3
-    /// + audio-48khz-96kbitrate-mono-mp3
-    /// + audio-48khz-192kbitrate-mono-mp3
-    /// + ogg-16khz-16bit-mono-opus
-    /// + ogg-24khz-16bit-mono-opus
-    /// + ogg-48khz-16bit-mono-opus
-    /// + raw-8khz-8bit-mono-alaw
-    /// + raw-8khz-8bit-mono-mulaw
-    /// + raw-8khz-16bit-mono-pcm
-    /// + raw-16khz-16bit-mono-pcm
-    /// + raw-16khz-16bit-mono-truesilk
-    /// + raw-22050hz-16bit-mono-pcm
-    /// + raw-24khz-16bit-mono-pcm
-    /// + raw-24khz-16bit-mono-truesilk
-    /// + raw-44100hz-16bit-mono-pcm
-    /// + raw-48khz-16bit-mono-pcm
-    /// + webm-16khz-16bit-mono-opus
-    /// + webm-24khz-16bit-24kbps-mono-opus
-    /// + webm-24khz-16bit-mono-opus
-    ///
-    /// NonStreaming audio output formats:
-    /// + riff-8khz-8bit-mono-alaw
-    /// + riff-8khz-8bit-mono-mulaw
-    /// + riff-8khz-16bit-mono-pcm
-    /// + riff-22050hz-16bit-mono-pcm
-    /// + riff-24khz-16bit-mono-pcm
-    /// + riff-44100hz-16bit-mono-pcm
-    /// + riff-48khz-16bit-mono-pcm
     pub audio_format: String,
     pub pitch: i32,
     pub rate: i32,
@@ -64,14 +24,14 @@ pub struct SpeechConfig {
 
 impl From<&super::voice::Voice> for SpeechConfig {
     fn from(voice: &super::voice::Voice) -> Self {
-        let audio_output_format = if let Some(ref output_format) = voice.suggested_codec {
-            output_format.clone()
+        let audio_format = if let Some(ref audio_format) = voice.suggested_codec {
+            audio_format.clone()
         } else {
             "audio-24khz-48kbitrate-mono-mp3".to_string()
         };
         Self {
             voice_name: voice.name.clone(),
-            audio_format: audio_output_format,
+            audio_format,
             pitch: 0,
             rate: 0,
             volume: 0,
