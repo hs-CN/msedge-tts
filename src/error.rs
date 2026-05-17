@@ -10,6 +10,8 @@ pub enum Error {
     UnexpectedMessage(String),
     #[error("isahc error: {0}")]
     IsahcError(#[from] isahc::Error),
+    #[error("ureq error: {0}")]
+    UreqError(#[from] ureq::Error),
     #[error("tungstenite error: {0}")]
     TungsteniteError(#[from] tungstenite::Error),
     #[error("serde json error: {0}")]

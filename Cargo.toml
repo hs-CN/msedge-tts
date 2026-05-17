@@ -13,10 +13,13 @@ exclude = ["examples/*"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 
+[features]
+default = ["ureq"]
+
 [dependencies]
 async-io = "2.6.0"
 async-lock = "3.4.2"
-async-native-tls = "0.5.0"
+async-native-tls = "0.6.0"
 async-std = "1.13.2"
 async-tungstenite = { version = "0.32.1", features = ["async-native-tls"] }
 base64 = "0.22.1"
@@ -32,6 +35,11 @@ sha2 = "0.10.9"
 thiserror = "2.0.18"
 tungstenite = { version = "0.28.0", features = ["native-tls"] }
 uuid = { version = "1.19.0", features = ["fast-rng", "v4"] }
+
+[dependencies.ureq]
+version = "3.3.0"
+features = ["json", "platform-verifier", "socks-proxy"]
+optional = true
 
 [dev-dependencies]
 smol = "2.0.2"

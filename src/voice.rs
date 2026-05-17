@@ -6,7 +6,7 @@
 //! Use [get_voices_list_proxy_async] function to get all available voices with proxy asynchronously.
 
 use crate::{constants, error::Result};
-use isahc::{AsyncReadResponseExt, ReadResponseExt, RequestExt, config::Configurable};
+use isahc::{AsyncReadResponseExt, RequestExt, config::Configurable};
 
 /// Voice category tags and personalities tags
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
@@ -40,33 +40,48 @@ pub struct Voice {
 
 /// Get all available voices
 pub fn get_voices_list() -> Result<Vec<Voice>> {
-    Ok(build_request(None, None, None)
-        .map_err(isahc::Error::from)?
-        .send()?
-        .json()?)
+    Ok(ureq::get(constants::VOICE_LIST_URL)
+        .header("User-Agent", constants::USER_AGENT)
+        .call()?
+        .body_mut()
+        .read_json()?)
 }
 
 /// Get all available voices with proxy.
 ///
-/// **docs copy from isahc**  
-/// Set a proxy to use for requests.
-/// The proxy protocol is specified by the URI scheme.
+/// **doc copy from ureq**
 ///
-/// `http`: Proxy. Default when no scheme is specified.  
-/// `https`: HTTPS Proxy. (Added in 7.52.0 for OpenSSL, GnuTLS and NSS)  
-/// `socks4`: SOCKS4 Proxy.  
-/// `socks4a`: SOCKS4a Proxy. Proxy resolves URL hostname.  
-/// `socks5`: SOCKS5 Proxy.  
-/// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
-pub fn get_voices_list_proxy(
-    proxy: isahc::http::Uri,
-    username: Option<&str>,
-    password: Option<&str>,
-) -> Result<Vec<Voice>> {
-    Ok(build_request(Some(proxy), username, password)
-        .map_err(isahc::Error::from)?
-        .send()?
-        .json()?)
+/// Create a proxy from a uri.
+///
+/// # Arguments:
+///
+/// * `proxy` - a str of format `<protocol>://<user>:<password>@<host>:port` . All parts
+///   except host are optional.
+///
+/// ###  Protocols
+///
+/// * `http`: HTTP CONNECT proxy
+/// * `https`: HTTPS CONNECT proxy (requires a TLS provider)
+/// * `socks4`: SOCKS4 (requires **socks-proxy** feature)
+/// * `socks4a`: SOCKS4A (requires **socks-proxy** feature)
+/// * `socks5` and `socks`: SOCKS5 (requires **socks-proxy** feature)
+///
+/// # Examples proxy formats
+///
+/// * `http://127.0.0.1:8080`
+/// * `socks5://john:smith@socks.google.com`
+/// * `john:smith@socks.google.com:8000`
+/// * `localhost`
+pub fn get_voices_list_proxy(proxy: &str) -> Result<Vec<Voice>> {
+    let proxy = ureq::Proxy::new(proxy)?;
+    let config = ureq::config::Config::builder().proxy(Some(proxy)).build();
+    Ok(config
+        .new_agent()
+        .get(constants::VOICE_LIST_URL)
+        .header("User-Agent", constants::USER_AGENT)
+        .call()?
+        .body_mut()
+        .read_json()?)
 }
 
 /// Get all available voices asynchronously
