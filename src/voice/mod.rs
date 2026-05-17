@@ -1,14 +1,12 @@
-//! Voice Type and Get function
+//! Voice type and functions to get all available voices.
 
 #[cfg(feature = "smol-runtime")]
-mod smol_runtime;
-#[cfg(feature = "smol-runtime")]
-pub use smol_runtime::*;
+#[cfg_attr(docsrs, doc(cfg(feature = "smol-runtime")))]
+pub mod smol_runtime;
 
 #[cfg(feature = "tokio-runtime")]
-mod tokio_runtime;
-#[cfg(feature = "tokio-runtime")]
-pub use tokio_runtime::*;
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
+pub mod tokio_runtime;
 
 use crate::{constants, error::Result};
 

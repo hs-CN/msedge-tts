@@ -1,4 +1,4 @@
-use msedge_tts::voice::get_voices_list_async;
+use msedge_tts::voice::smol_runtime::get_voices_list_async;
 use std::time::Instant;
 
 fn main() {

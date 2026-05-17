@@ -1,3 +1,5 @@
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 //! This library is a wrapper of **MSEdge Read aloud** function API.
 //! You can use it to synthesize text to speech with many voices MS provided.
 //!

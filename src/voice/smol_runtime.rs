@@ -1,3 +1,11 @@
+//! Functions to get all available voices asynchronously.
+//!
+//! Actually there is no well maintained async http client for smol,
+//! so we use [async-compat](https://docs.rs/async-compat) and [reqwest](https://docs.rs/reqwest).
+//!
+//! Use [get_voices_list_async] function to get all available voices asynchronously.  
+//! Use [get_voices_list_proxy_async] function to get all available voices with proxy asynchronously.
+
 use crate::{constants, error::Result, voice::Voice};
 
 /// Get all available voices asynchronously
