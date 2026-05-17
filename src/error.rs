@@ -8,10 +8,12 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 pub enum Error {
     #[error("unexpected message: {0}")]
     UnexpectedMessage(String),
-    #[error("isahc error: {0}")]
-    IsahcError(#[from] isahc::Error),
+    #[cfg(feature = "default")]
     #[error("ureq error: {0}")]
     UreqError(#[from] ureq::Error),
+    #[cfg(any(feature = "smol-runtime", feature = "tokio-runtime"))]
+    #[error("reqwest error: {0}")]
+    ReqwestError(#[from] reqwest::Error),
     #[error("tungstenite error: {0}")]
     TungsteniteError(#[from] tungstenite::Error),
     #[error("serde json error: {0}")]

@@ -10,6 +10,6 @@ fn main() {
     println!("{:#?}", voices);
 
     // http proxy
-    let voices = get_voices_list_proxy("localhost:7897").unwrap();
+    let voices = get_voices_list_proxy("http://localhost:7897").unwrap();
     println!("{:#?}", voices);
 }
