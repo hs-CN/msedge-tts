@@ -6,7 +6,7 @@
 //! Use [get_voices_list_proxy_async] function to get all available voices with proxy asynchronously.
 
 use crate::{constants, error::Result};
-use isahc::{config::Configurable, AsyncReadResponseExt, ReadResponseExt, RequestExt};
+use isahc::{AsyncReadResponseExt, ReadResponseExt, RequestExt, config::Configurable};
 
 /// Voice category tags and personalities tags
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
@@ -36,27 +36,6 @@ pub struct Voice {
     pub status: Option<String>,
     #[serde(rename = "VoiceTag")]
     pub voice_tag: Option<VoiceTag>,
-}
-
-impl From<String> for Voice {
-    fn from(voice_name: String) -> Self {
-        Self {
-            name: voice_name,
-            short_name: None,
-            gender: None,
-            locale: None,
-            suggested_codec: None,
-            friendly_name: None,
-            status: None,
-            voice_tag: None,
-        }
-    }
-}
-
-impl From<&str> for Voice {
-    fn from(voice_name: &str) -> Self {
-        voice_name.to_string().into()
-    }
 }
 
 /// Get all available voices
