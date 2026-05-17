@@ -14,11 +14,13 @@ exclude = ["examples/*"]
 [package.metadata.docs.rs]
 all-features = true
 
+
 [features]
 default = ["ureq"]
 smol-runtime = ["reqwest", "async-compat"]
-tokio-runtime = []
+tokio-runtime = ["reqwest"]
 gio-runtime = []
+
 
 [dependencies]
 async-io = "2.6.0"
@@ -53,9 +55,12 @@ features = ["gzip", "json", "socks"]
 version = "0.2.5"
 optional = true
 
+
 [dev-dependencies]
+tokio = { version = "1.52.3", features = ["net", "rt", "time"] }
 smol = "2.0.2"
 rodio = "0.21.1"
+
 
 [[example]]
 name = "get_voices_list_smol_async"
@@ -64,3 +69,11 @@ required-features = ["smol-runtime"]
 [[example]]
 name = "get_voices_list_proxy_smol_async"
 required-features = ["smol-runtime"]
+
+[[example]]
+name = "get_voices_list_tokio_async"
+required-features = ["tokio-runtime"]
+
+[[example]]
+name = "get_voices_list_proxy_tokio_async"
+required-features = ["tokio-runtime"]

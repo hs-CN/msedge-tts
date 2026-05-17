@@ -5,6 +5,11 @@ mod smol_runtime;
 #[cfg(feature = "smol-runtime")]
 pub use smol_runtime::*;
 
+#[cfg(feature = "tokio-runtime")]
+mod tokio_runtime;
+#[cfg(feature = "tokio-runtime")]
+pub use tokio_runtime::*;
+
 use crate::{constants, error::Result};
 
 /// Voice category tags and personalities tags
