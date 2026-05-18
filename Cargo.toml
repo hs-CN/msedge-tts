@@ -17,12 +17,12 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 
 [features]
+default = ["blocking"]
 proxy = ["ureq?/socks-proxy", "reqwest?/socks"]
 blocking = [
     "ureq",
-    "tungstenite",
+    "tungstenite/__rustls-tls",
     "rustls",
-    "rustls-pki-types",
     "rustls-platform-verifier",
 ]
 smol-runtime = ["reqwest", "async-compat"]
@@ -46,6 +46,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 sha2 = "0.11.0"
 thiserror = "2.0.18"
+tungstenite = "0.29.0"
 uuid = { version = "1.23.1", features = ["fast-rng", "v4"] }
 
 [dependencies.ureq]
@@ -62,18 +63,11 @@ features = ["gzip", "json"]
 version = "0.2.5"
 optional = true
 
-[dependencies.tungstenite]
-version = "0.29.0"
-optional = true
-features = ["__rustls-tls"]
-
 [dependencies.rustls]
 version = "0.23.40"
 optional = true
-
-[dependencies.rustls-pki-types]
-version = "1.14.1"
-optional = true
+default-features = false
+features = ["std", "tls12"]
 
 [dependencies.rustls-platform-verifier]
 version = "0.7.0"
@@ -83,11 +77,8 @@ optional = true
 [dev-dependencies]
 tokio = { version = "1.52.3", features = ["net", "rt", "time"] }
 smol = "2.0.2"
-rodio = "0.21.1"
+rodio = "0.22.2"
 
-[[example]]
-name = "get_voices_list"
-required-features = ["blocking"]
 
 [[example]]
 name = "get_voices_list_proxy"

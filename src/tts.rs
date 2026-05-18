@@ -1,16 +1,6 @@
 //! TTS Client and Stream, SpeechConfig, Response Type.
 
-pub mod client;
-pub mod stream;
-
-mod proxy;
-use crate::error::{Error, ProxyError, Result};
-use proxy::{
-    http_proxy, http_proxy_async, socks4_proxy, socks4_proxy_async, socks5_proxy,
-    socks5_proxy_asnyc, ProxyAsyncStream, ProxyStream,
-};
-
-use sha2::Digest;
+use crate::error::{Error, Result};
 
 /// Synthesis Config
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
@@ -22,12 +12,12 @@ pub struct SpeechConfig {
     pub volume: i32,
 }
 
-impl From<&super::voice::Voice> for SpeechConfig {
-    fn from(voice: &super::voice::Voice) -> Self {
+impl From<&crate::voice::Voice> for SpeechConfig {
+    fn from(voice: &crate::voice::Voice) -> Self {
         let audio_format = if let Some(ref audio_format) = voice.suggested_codec {
             audio_format.clone()
         } else {
-            "audio-24khz-48kbitrate-mono-mp3".to_string()
+            "audio-24khz-48kbitrate-mono-mp3".to_owned()
         };
         Self {
             voice_name: voice.name.clone(),
@@ -138,10 +128,115 @@ fn process_message(
     }
 }
 
+
+fn build_config_message(config: &SpeechConfig) -> tungstenite::Message {
+    static SPEECH_CONFIG_HEAD: &str = r#"{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"true"},"outputFormat":""#;
+    static SPEECH_CONFIG_TAIL: &str = r#""}}}}"#;
+    let speech_config_message = format!(
+        "X-Timestamp:{}\r\nContent-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n{}{}{}",
+        chrono::Local::now().to_rfc2822(),
+        SPEECH_CONFIG_HEAD,
+        config.audio_format,
+        SPEECH_CONFIG_TAIL
+    );
+    tungstenite::Message::Text(speech_config_message.into())
+}
+
+fn build_ssml_message(text: &str, config: &SpeechConfig) -> tungstenite::Message {
+    let ssml = format!(
+        "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><voice name='{}'><prosody pitch='{:+}Hz' rate='{:+}%' volume='{:+}%'>{}</prosody></voice></speak>",
+        config.voice_name, config.pitch, config.rate, config.volume, text,
+    );
+    let ssml_message = format!(
+        "X-RequestId:{}\r\nContent-Type:application/ssml+xml\r\nX-Timestamp:{}\r\nPath:ssml\r\n\r\n{}",
+        uuid::Uuid::new_v4().simple(),
+        chrono::Local::now().to_rfc2822(),
+        ssml,
+    );
+    tungstenite::Message::Text(ssml_message.into())
+}
+
+// fn websocket_connect_proxy(
+//     proxy: http::Uri,
+//     username: Option<&str>,
+//     password: Option<&str>,
+// ) -> Result<WebSocketStream<ProxyStream>> {
+//     use tungstenite::handshake::HandshakeError;
+
+//     let request = build_websocket_request()?;
+//     let stream: std::result::Result<ProxyStream, ProxyError> = match proxy.scheme_str() {
+//         Some(scheme) => match scheme.to_lowercase().as_str() {
+//             "socks4" | "socks4a" => {
+//                 socks4_proxy(request.uri().host().unwrap(), proxy, username).map_err(|e| e.into())
+//             }
+//             "socks5" | "socks5h" => {
+//                 socks5_proxy(request.uri().host().unwrap(), proxy, username, password)
+//                     .map_err(|e| e.into())
+//             }
+//             "http" | "https" => {
+//                 http_proxy(request.uri().host().unwrap(), proxy, username, password)
+//                     .map_err(|e| e.into())
+//             }
+//             _ => Err(ProxyError::NotSupportedScheme(proxy)),
+//         },
+//         None => http_proxy(request.uri().host().unwrap(), proxy, username, password)
+//             .map_err(|e| e.into()),
+//     };
+//     let (websocket, _) = tungstenite::client_tls(request, stream?).map_err(|e| match e {
+//         HandshakeError::Failure(e) => e,
+//         HandshakeError::Interrupted(_) => panic!("Bug: blocking handshake not blocked"),
+//     })?;
+//     Ok(websocket)
+// }
+
+// type WebSocketStreamAsync<T> =
+//     async_tungstenite::WebSocketStream<async_tungstenite::async_std::ClientStream<T>>;
+
+// async fn websocket_connect_async() -> Result<WebSocketStreamAsync<async_std::net::TcpStream>> {
+//     let request = build_websocket_request()?;
+//     let (websocket, _) = async_tungstenite::async_std::connect_async(request).await?;
+//     Ok(websocket)
+// }
+
+// async fn websocket_connect_proxy_async(
+//     proxy: http::Uri,
+//     username: Option<&str>,
+//     password: Option<&str>,
+// ) -> Result<WebSocketStreamAsync<ProxyAsyncStream>> {
+//     let request = build_websocket_request()?;
+//     let stream: std::result::Result<ProxyAsyncStream, ProxyError> = match proxy.scheme_str() {
+//         Some(scheme) => match scheme.to_lowercase().as_str() {
+//             "socks4" | "socks4a" => {
+//                 socks4_proxy_async(request.uri().host().unwrap(), proxy, username)
+//                     .await
+//                     .map_err(|e| e.into())
+//             }
+//             "socks5" | "socks5h" => {
+//                 socks5_proxy_asnyc(request.uri().host().unwrap(), proxy, username, password)
+//                     .await
+//                     .map_err(|e| e.into())
+//             }
+//             "http" | "https" => {
+//                 http_proxy_async(request.uri().host().unwrap(), proxy, username, password)
+//                     .await
+//                     .map_err(|e| e.into())
+//             }
+//             _ => Err(ProxyError::NotSupportedScheme(proxy)),
+//         },
+//         None => http_proxy_async(request.uri().host().unwrap(), proxy, username, password)
+//             .await
+//             .map_err(|e| e.into()),
+//     };
+//     let (websocket, _) = async_tungstenite::async_std::client_async_tls(request, stream?).await?;
+//     Ok(websocket)
+// }
+
 // try to fix china mainland 403 forbidden issue
 // solution from:
 // https://github.com/rany2/edge-tts/issues/290#issuecomment-2464956570
 fn gen_sec_ms_gec() -> String {
+    use sha2::Digest;
+
     // UTC time from 1601-01-01
     let duration = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -161,7 +256,7 @@ fn gen_sec_ms_gec() -> String {
 }
 
 fn build_websocket_request() -> Result<tungstenite::handshake::client::Request> {
-    use super::constants;
+    use crate::constants;
     use tungstenite::client::IntoClientRequest;
     use tungstenite::http::header;
 
@@ -177,143 +272,63 @@ fn build_websocket_request() -> Result<tungstenite::handshake::client::Request> 
     )
     .into_client_request()?;
     let headers = request.headers_mut();
-    headers.insert(
-        header::PRAGMA,
-        "no-cache"
-            .parse()
-            .map_err(|err| tungstenite::Error::from(http::Error::from(err)))?,
-    );
-    headers.insert(
-        header::CACHE_CONTROL,
-        "no-cache"
-            .parse()
-            .map_err(|err| tungstenite::Error::from(http::Error::from(err)))?,
-    );
-    headers.insert(
-        header::USER_AGENT,
-        constants::USER_AGENT
-            .parse()
-            .map_err(|err| tungstenite::Error::from(http::Error::from(err)))?,
-    );
-    headers.insert(
-        header::ORIGIN,
-        constants::ORIGIN
-            .parse()
-            .map_err(|err| tungstenite::Error::from(http::Error::from(err)))?,
-    );
+    headers.insert(header::PRAGMA, "no-cache".parse().unwrap());
+    headers.insert(header::CACHE_CONTROL, "no-cache".parse().unwrap());
+    headers.insert(header::USER_AGENT, constants::USER_AGENT.parse().unwrap());
+    headers.insert(header::ORIGIN, constants::ORIGIN.parse().unwrap());
     Ok(request)
 }
 
-fn build_config_message(config: &SpeechConfig) -> tungstenite::Message {
-    static SPEECH_CONFIG_HEAD: &str = r#"{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"true"},"outputFormat":""#;
-    static SPEECH_CONFIG_TAIL: &str = r#""}}}}"#;
-    let speech_config_message = format!(
-        "X-Timestamp:{}\r\nContent-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n{}{}{}",
-        chrono::Local::now().to_rfc2822(),
-        SPEECH_CONFIG_HEAD,
-        config.audio_format,
-        SPEECH_CONFIG_TAIL
-    );
-    tungstenite::Message::Text(speech_config_message.into())
-}
+#[cfg(feature = "blocking")]
+type RustlsStream = rustls::StreamOwned<rustls::ClientConnection, std::net::TcpStream>;
 
-fn build_ssml_message(text: &str, config: &SpeechConfig) -> tungstenite::Message {
-    let ssml = format!(
-        "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><voice name='{}'><prosody pitch='{:+}Hz' rate='{:+}%' volume='{:+}%'>{}</prosody></voice></speak>",
-        config.voice_name,
-        config.pitch,
-        config.rate,
-        config.volume,
-        text,
-    );
-    let ssml_message = format!(
-        "X-RequestId:{}\r\nContent-Type:application/ssml+xml\r\nX-Timestamp:{}\r\nPath:ssml\r\n\r\n{}",
-        uuid::Uuid::new_v4().simple(),
-        chrono::Local::now().to_rfc2822(),
-        ssml,
-    );
-    tungstenite::Message::Text(ssml_message.into())
-}
+#[cfg(feature = "blocking")]
+fn websocket_connect() -> Result<tungstenite::WebSocket<RustlsStream>> {
+    use rustls::pki_types::ServerName;
+    use rustls::{ClientConfig, ClientConnection, StreamOwned};
+    use rustls_platform_verifier::ConfigVerifierExt;
+    use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
+    use std::sync::Arc;
+    use tungstenite::{ClientHandshake, Error, HandshakeError, Result, error::*};
 
-type WebSocketStream<T> = tungstenite::WebSocket<tungstenite::stream::MaybeTlsStream<T>>;
+    fn connect_to_some(addrs: &[SocketAddr], uri: &str) -> Result<TcpStream> {
+        for addr in addrs {
+            if let Ok(stream) = TcpStream::connect(addr) {
+                return Ok(stream);
+            }
+        }
+        Err(Error::Url(UrlError::UnableToConnect(uri.to_owned())))
+    }
 
-fn websocket_connect() -> Result<WebSocketStream<std::net::TcpStream>> {
     let request = build_websocket_request()?;
-    let (websocket, _) = tungstenite::connect(request)?;
+    let host = request
+        .uri()
+        .host()
+        .ok_or(Error::Url(UrlError::NoHostName))?
+        .to_owned();
+    let addrs = (host.as_str(), 443)
+        .to_socket_addrs()
+        .map_err(|e| Error::Io(e))?;
+    let stream = connect_to_some(addrs.as_slice(), host.as_str())?;
+    stream.set_nodelay(true).map_err(|e| Error::Io(e))?;
+
+    let config =
+        ClientConfig::with_platform_verifier().map_err(|e| Error::Tls(TlsError::from(e)))?;
+    let name = ServerName::try_from(host).map_err(|_| Error::Tls(TlsError::InvalidDnsName))?;
+    let client =
+        ClientConnection::new(Arc::new(config), name).map_err(|e| Error::Tls(TlsError::from(e)))?;
+
+    let stream = StreamOwned::new(client, stream);
+    let (websocket, _) = ClientHandshake::start(stream, request, None)?
+        .handshake()
+        .map_err(|e| match e {
+            HandshakeError::Failure(e) => e,
+            HandshakeError::Interrupted(_) => {
+                panic!("Bug: blocking handshake not blocked")
+            }
+        })?;
     Ok(websocket)
 }
 
-fn websocket_connect_proxy(
-    proxy: http::Uri,
-    username: Option<&str>,
-    password: Option<&str>,
-) -> Result<WebSocketStream<ProxyStream>> {
-    use tungstenite::handshake::HandshakeError;
-
-    let request = build_websocket_request()?;
-    let stream: std::result::Result<ProxyStream, ProxyError> = match proxy.scheme_str() {
-        Some(scheme) => match scheme.to_lowercase().as_str() {
-            "socks4" | "socks4a" => {
-                socks4_proxy(request.uri().host().unwrap(), proxy, username).map_err(|e| e.into())
-            }
-            "socks5" | "socks5h" => {
-                socks5_proxy(request.uri().host().unwrap(), proxy, username, password)
-                    .map_err(|e| e.into())
-            }
-            "http" | "https" => {
-                http_proxy(request.uri().host().unwrap(), proxy, username, password)
-                    .map_err(|e| e.into())
-            }
-            _ => Err(ProxyError::NotSupportedScheme(proxy)),
-        },
-        None => http_proxy(request.uri().host().unwrap(), proxy, username, password)
-            .map_err(|e| e.into()),
-    };
-    let (websocket, _) = tungstenite::client_tls(request, stream?).map_err(|e| match e {
-        HandshakeError::Failure(e) => e,
-        HandshakeError::Interrupted(_) => panic!("Bug: blocking handshake not blocked"),
-    })?;
-    Ok(websocket)
-}
-
-type WebSocketStreamAsync<T> =
-    async_tungstenite::WebSocketStream<async_tungstenite::async_std::ClientStream<T>>;
-
-async fn websocket_connect_async() -> Result<WebSocketStreamAsync<async_std::net::TcpStream>> {
-    let request = build_websocket_request()?;
-    let (websocket, _) = async_tungstenite::async_std::connect_async(request).await?;
-    Ok(websocket)
-}
-
-async fn websocket_connect_proxy_async(
-    proxy: http::Uri,
-    username: Option<&str>,
-    password: Option<&str>,
-) -> Result<WebSocketStreamAsync<ProxyAsyncStream>> {
-    let request = build_websocket_request()?;
-    let stream: std::result::Result<ProxyAsyncStream, ProxyError> = match proxy.scheme_str() {
-        Some(scheme) => match scheme.to_lowercase().as_str() {
-            "socks4" | "socks4a" => {
-                socks4_proxy_async(request.uri().host().unwrap(), proxy, username)
-                    .await
-                    .map_err(|e| e.into())
-            }
-            "socks5" | "socks5h" => {
-                socks5_proxy_asnyc(request.uri().host().unwrap(), proxy, username, password)
-                    .await
-                    .map_err(|e| e.into())
-            }
-            "http" | "https" => {
-                http_proxy_async(request.uri().host().unwrap(), proxy, username, password)
-                    .await
-                    .map_err(|e| e.into())
-            }
-            _ => Err(ProxyError::NotSupportedScheme(proxy)),
-        },
-        None => http_proxy_async(request.uri().host().unwrap(), proxy, username, password)
-            .await
-            .map_err(|e| e.into()),
-    };
-    let (websocket, _) = async_tungstenite::async_std::client_async_tls(request, stream?).await?;
-    Ok(websocket)
-}
+pub mod client;
+pub mod stream;

@@ -1,5 +1,5 @@
 use msedge_tts::{
-    tts::{client::connect, SpeechConfig},
+    tts::{SpeechConfig, client::connect},
     voice::get_voices_list,
 };
 use std::time::Instant;
@@ -20,14 +20,14 @@ fn main() {
             println!("{:?}", Instant::now() - start);
 
             println!("play audio...");
-            let stream_handle = rodio::OutputStreamBuilder::open_default_stream().unwrap();
-            let sink = rodio::Sink::connect_new(&stream_handle.mixer());
+            let handle = rodio::DeviceSinkBuilder::open_default_sink().unwrap();
+            let player = rodio::Player::connect_new(&handle.mixer());
 
             let decoder =
                 rodio::decoder::Decoder::new(std::io::Cursor::new(audio.audio_bytes)).unwrap();
 
-            sink.append(decoder);
-            sink.sleep_until_end();
+            player.append(decoder);
+            player.sleep_until_end();
             println!("play audio done.");
 
             break;

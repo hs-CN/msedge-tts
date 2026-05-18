@@ -1,5 +1,5 @@
 use msedge_tts::{
-    tts::{client::connect, SpeechConfig},
+    tts::{SpeechConfig, client::connect},
     voice::get_voices_list,
 };
 use std::time::Instant;
