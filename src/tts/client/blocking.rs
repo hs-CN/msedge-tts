@@ -1,10 +1,11 @@
-use crate::tts::{
-     ProcessedMessage, SpeechConfig, build_config_message, build_ssml_message,
-    process_message, websocket_connect,client::SynthesizedAudio
+use crate::{
+    error::Result,
+    tts::{
+        Payload, RustlsStream, SpeechConfig, build_config_message, build_ssml_message,
+        client::SynthesizedAudio, websocket_connect,
+    },
 };
-use crate::{error::Result, tts::RustlsStream};
 use std::io::{Read, Write};
-
 
 /// Sync Client
 pub struct MSEdgeTTSClient<T: Read + Write>(tungstenite::WebSocket<T>);
@@ -28,13 +29,13 @@ impl<T: Read + Write> MSEdgeTTSClient<T> {
             }
 
             let message = self.0.read()?;
-            let message = process_message(message, &mut turn_start, &mut response, &mut turn_end)?;
-            if let Some(message) = message {
-                match message {
-                    ProcessedMessage::AudioBytes(payload) => {
+            let payload = Payload::process(message, &mut turn_start, &mut response, &mut turn_end)?;
+            if let Some(payload) = payload {
+                match payload {
+                    Payload::AudioBytes(payload) => {
                         audio_bytes.push(payload);
                     }
-                    ProcessedMessage::AudioMetadata(metadata) => {
+                    Payload::AudioMetadata(metadata) => {
                         audio_metadata.extend(metadata);
                     }
                 }

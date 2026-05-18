@@ -73,61 +73,62 @@ impl AudioMetadata {
     }
 }
 
-enum ProcessedMessage {
+enum Payload {
     AudioBytes((tungstenite::Bytes, usize)),
     AudioMetadata(Vec<AudioMetadata>),
 }
 
-fn process_message(
-    message: tungstenite::Message,
-    turn_start: &mut bool,
-    response: &mut bool,
-    turn_end: &mut bool,
-) -> Result<Option<ProcessedMessage>> {
-    match message {
-        tungstenite::Message::Text(text) => {
-            if text.contains("audio.metadata") {
-                if let Some(index) = text.find("\r\n\r\n") {
-                    let metadata = AudioMetadata::from_str(&text[index + 4..])?;
-                    Ok(Some(ProcessedMessage::AudioMetadata(metadata)))
+impl Payload {
+    fn process(
+        message: tungstenite::Message,
+        turn_start: &mut bool,
+        response: &mut bool,
+        turn_end: &mut bool,
+    ) -> Result<Option<Payload>> {
+        match message {
+            tungstenite::Message::Text(text) => {
+                if text.contains("audio.metadata") {
+                    if let Some(index) = text.find("\r\n\r\n") {
+                        let metadata = AudioMetadata::from_str(&text[index + 4..])?;
+                        Ok(Some(Payload::AudioMetadata(metadata)))
+                    } else {
+                        Ok(None)
+                    }
+                } else if text.contains("turn.start") {
+                    *turn_start = true;
+                    Ok(None)
+                } else if text.contains("response") {
+                    *response = true;
+                    Ok(None)
+                } else if text.contains("turn.end") {
+                    *turn_end = true;
+                    Ok(None)
+                } else {
+                    Err(Error::UnexpectedMessage(format!(
+                        "unexpected text message: {}",
+                        text
+                    )))
+                }
+            }
+            tungstenite::Message::Binary(bytes) => {
+                if *turn_start || *response {
+                    let header_len = u16::from_be_bytes([bytes[0], bytes[1]]) as usize;
+                    Ok(Some(Payload::AudioBytes((bytes, header_len + 2))))
                 } else {
                     Ok(None)
                 }
-            } else if text.contains("turn.start") {
-                *turn_start = true;
-                Ok(None)
-            } else if text.contains("response") {
-                *response = true;
-                Ok(None)
-            } else if text.contains("turn.end") {
+            }
+            tungstenite::Message::Close(_) => {
                 *turn_end = true;
                 Ok(None)
-            } else {
-                Err(Error::UnexpectedMessage(format!(
-                    "unexpected text message: {}",
-                    text
-                )))
             }
+            _ => Err(Error::UnexpectedMessage(format!(
+                "unexpected message: {}",
+                message
+            ))),
         }
-        tungstenite::Message::Binary(bytes) => {
-            if *turn_start || *response {
-                let header_len = u16::from_be_bytes([bytes[0], bytes[1]]) as usize;
-                Ok(Some(ProcessedMessage::AudioBytes((bytes, header_len + 2))))
-            } else {
-                Ok(None)
-            }
-        }
-        tungstenite::Message::Close(_) => {
-            *turn_end = true;
-            Ok(None)
-        }
-        _ => Err(Error::UnexpectedMessage(format!(
-            "unexpected message: {}",
-            message
-        ))),
     }
 }
-
 
 fn build_config_message(config: &SpeechConfig) -> tungstenite::Message {
     static SPEECH_CONFIG_HEAD: &str = r#"{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"true"},"outputFormat":""#;
