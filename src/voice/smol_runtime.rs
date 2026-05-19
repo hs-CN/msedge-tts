@@ -30,7 +30,7 @@ pub async fn get_voices_list_async() -> Result<Vec<Voice>> {
 ///
 /// * `proxy` - a str of format `<protocol>://<user>:<password>@<host>:port`.
 #[cfg(feature = "proxy")]
-#[cfg_attr(docsrs, doc(cfg(feature = "proxy")))]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "smol-runtime", feature = "proxy"))))]
 pub async fn get_voices_list_proxy_async(proxy: &str) -> Result<Vec<Voice>> {
     let proxy = reqwest::Proxy::all(proxy)?;
     Ok(async_compat::Compat::new(async {

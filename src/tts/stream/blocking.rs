@@ -1,19 +1,22 @@
 use std::{
     io::{Read, Write},
+    net::TcpStream,
     sync::{Arc, Condvar, Mutex},
 };
 
 use crate::{
     error::Result,
     tts::{
-        Payload, RustlsStream, SpeechConfig, build_config_message, build_ssml_message,
-        stream::SynthesizedResponse, websocket_connect,
+        Payload, SpeechConfig,
+        blocking::{WebSocket, websocket_connect},
+        build_config_message, build_ssml_message,
+        stream::SynthesizedResponse,
     },
 };
 
 /// Sync TTS Stream Sender
 pub struct Sender<T: Read + Write> {
-    websocket: Arc<Mutex<tungstenite::WebSocket<T>>>,
+    websocket: Arc<Mutex<WebSocket<T>>>,
     can_read_cvar: Arc<(Mutex<bool>, Condvar)>,
 }
 
@@ -48,7 +51,7 @@ impl<T: Read + Write> Sender<T> {
 
 /// Sync TTS Stream Reader
 pub struct Reader<T: Read + Write> {
-    websocket: Arc<Mutex<tungstenite::WebSocket<T>>>,
+    websocket: Arc<Mutex<WebSocket<T>>>,
     can_read_cvar: Arc<(Mutex<bool>, Condvar)>,
     turn_start: bool,
     response: bool,
@@ -92,7 +95,7 @@ impl<T: Read + Write> Reader<T> {
     }
 }
 
-fn split<T: Read + Write>(websocket: tungstenite::WebSocket<T>) -> Result<(Sender<T>, Reader<T>)> {
+fn split<T: Read + Write>(websocket: WebSocket<T>) -> Result<(Sender<T>, Reader<T>)> {
     let websocket = Arc::new(Mutex::new(websocket));
     let can_read_cvar = Arc::new((Mutex::new(false), Condvar::new()));
     let sender = Sender {
@@ -110,9 +113,12 @@ fn split<T: Read + Write>(websocket: tungstenite::WebSocket<T>) -> Result<(Sende
 }
 
 /// Create Sync TTS Stream [Sender] and [Reader]
-pub fn msedge_tts_split() -> Result<(Sender<RustlsStream>, Reader<RustlsStream>)> {
+pub fn msedge_tts_split() -> Result<(Sender<TcpStream>, Reader<TcpStream>)> {
     split(websocket_connect()?)
 }
+
+#[cfg(feature = "proxy")]
+use crate::tts::{blocking::websocket_connect_proxy, proxy::blocking::ProxyStream};
 
 /// Create Sync TTS Stream [Sender] and [Reader] with proxy
 ///
@@ -125,6 +131,7 @@ pub fn msedge_tts_split() -> Result<(Sender<RustlsStream>, Reader<RustlsStream>)
 /// `socks5`: SOCKS5 Proxy.  
 /// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
 #[cfg(feature = "proxy")]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "blocking", feature = "proxy"))))]
 pub fn msedge_tts_split_proxy(
     proxy: http::Uri,
     username: Option<&str>,

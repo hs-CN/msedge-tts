@@ -18,7 +18,15 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["blocking"]
-proxy = ["ureq?/socks-proxy", "reqwest?/socks"]
+proxy = [
+    "ureq?/socks-proxy",
+    "reqwest?/socks",
+    "rustls",
+    "rustls-platform-verifier",
+    "http",
+    "httparse",
+    "base64",
+]
 blocking = [
     "ureq",
     "tungstenite/__rustls-tls",
@@ -33,15 +41,9 @@ gio-runtime = []
 [dependencies]
 async-io = "2.6.0"
 async-lock = "3.4.2"
-async-native-tls = "0.6.0"
-async-std = "1.13.2"
-async-tungstenite = { version = "0.32.1", features = ["async-native-tls"] }
-base64 = "0.22.1"
-chrono = "0.4.43"
+async-tungstenite = { version = "0.34.1", features = ["async-native-tls"] }
+chrono = "0.4.44"
 futures-util = "0.3.31"
-http = "1.4.0"
-httparse = "1.10.1"
-native-tls = "0.2.14"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 sha2 = "0.11.0"
@@ -73,6 +75,18 @@ features = ["std", "tls12"]
 version = "0.7.0"
 optional = true
 
+[dependencies.http]
+version = "1.4.0"
+optional = true
+
+[dependencies.httparse]
+version = "1.10.1"
+optional = true
+
+[dependencies.base64]
+version = "0.22.1"
+optional = true
+
 
 [dev-dependencies]
 tokio = { version = "1.52.3", features = ["net", "rt", "time"] }
@@ -82,7 +96,15 @@ rodio = "0.22.2"
 
 [[example]]
 name = "get_voices_list_proxy"
-required-features = ["blocking", "proxy"]
+required-features = ["proxy"]
+
+[[example]]
+name = "synthesize_proxy"
+required-features = ["proxy"]
+
+[[example]]
+name = "synthesize_stream_proxy"
+required-features = ["proxy"]
 
 [[example]]
 name = "get_voices_list_smol_async"

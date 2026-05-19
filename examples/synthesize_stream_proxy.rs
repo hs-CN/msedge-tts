@@ -1,15 +1,15 @@
 use msedge_tts::{
     tts::{
-        stream::{msedge_tts_split_proxy, Reader, Sender, SynthesizedResponse},
         SpeechConfig,
+        stream::{Reader, Sender, SynthesizedResponse, msedge_tts_split_proxy},
     },
     voice::get_voices_list,
 };
 use std::{
     io::{Read, Write},
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
     thread::spawn,
     time::Instant,
@@ -23,17 +23,17 @@ fn main() {
             println!("choose '{}' to synthesize...", voice.name);
             let config = Arc::new(SpeechConfig::from(voice));
             let (sender, reader) =
-                msedge_tts_split_proxy("http://127.0.0.1:10809".parse().unwrap(), None, None)
+                msedge_tts_split_proxy("http://127.0.0.1:7897".parse().unwrap(), None, None)
                     .unwrap();
             synthesize(sender, reader, config.clone());
 
             let (sender, reader) =
-                msedge_tts_split_proxy("socks4://127.0.0.1:10808".parse().unwrap(), None, None)
+                msedge_tts_split_proxy("socks4://127.0.0.1:7897".parse().unwrap(), None, None)
                     .unwrap();
             synthesize(sender, reader, config.clone());
 
             let (sender, reader) =
-                msedge_tts_split_proxy("socks5://127.0.0.1:10808".parse().unwrap(), None, None)
+                msedge_tts_split_proxy("socks5://127.0.0.1:7897".parse().unwrap(), None, None)
                     .unwrap();
             synthesize(sender, reader, config.clone());
             break;

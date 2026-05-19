@@ -157,39 +157,6 @@ fn build_ssml_message(text: &str, config: &SpeechConfig) -> tungstenite::Message
     tungstenite::Message::Text(ssml_message.into())
 }
 
-// fn websocket_connect_proxy(
-//     proxy: http::Uri,
-//     username: Option<&str>,
-//     password: Option<&str>,
-// ) -> Result<WebSocketStream<ProxyStream>> {
-//     use tungstenite::handshake::HandshakeError;
-
-//     let request = build_websocket_request()?;
-//     let stream: std::result::Result<ProxyStream, ProxyError> = match proxy.scheme_str() {
-//         Some(scheme) => match scheme.to_lowercase().as_str() {
-//             "socks4" | "socks4a" => {
-//                 socks4_proxy(request.uri().host().unwrap(), proxy, username).map_err(|e| e.into())
-//             }
-//             "socks5" | "socks5h" => {
-//                 socks5_proxy(request.uri().host().unwrap(), proxy, username, password)
-//                     .map_err(|e| e.into())
-//             }
-//             "http" | "https" => {
-//                 http_proxy(request.uri().host().unwrap(), proxy, username, password)
-//                     .map_err(|e| e.into())
-//             }
-//             _ => Err(ProxyError::NotSupportedScheme(proxy)),
-//         },
-//         None => http_proxy(request.uri().host().unwrap(), proxy, username, password)
-//             .map_err(|e| e.into()),
-//     };
-//     let (websocket, _) = tungstenite::client_tls(request, stream?).map_err(|e| match e {
-//         HandshakeError::Failure(e) => e,
-//         HandshakeError::Interrupted(_) => panic!("Bug: blocking handshake not blocked"),
-//     })?;
-//     Ok(websocket)
-// }
-
 // type WebSocketStreamAsync<T> =
 //     async_tungstenite::WebSocketStream<async_tungstenite::async_std::ClientStream<T>>;
 
@@ -281,55 +248,10 @@ fn build_websocket_request() -> Result<tungstenite::handshake::client::Request> 
 }
 
 #[cfg(feature = "blocking")]
-type RustlsStream = rustls::StreamOwned<rustls::ClientConnection, std::net::TcpStream>;
+pub(crate) mod blocking;
 
-#[cfg(feature = "blocking")]
-fn websocket_connect() -> Result<tungstenite::WebSocket<RustlsStream>> {
-    use rustls::pki_types::ServerName;
-    use rustls::{ClientConfig, ClientConnection, StreamOwned};
-    use rustls_platform_verifier::ConfigVerifierExt;
-    use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
-    use std::sync::Arc;
-    use tungstenite::{ClientHandshake, Error, HandshakeError, Result, error::*};
-
-    fn connect_to_some(addrs: &[SocketAddr], uri: &str) -> Result<TcpStream> {
-        for addr in addrs {
-            if let Ok(stream) = TcpStream::connect(addr) {
-                return Ok(stream);
-            }
-        }
-        Err(Error::Url(UrlError::UnableToConnect(uri.to_owned())))
-    }
-
-    let request = build_websocket_request()?;
-    let host = request
-        .uri()
-        .host()
-        .ok_or(Error::Url(UrlError::NoHostName))?
-        .to_owned();
-    let addrs = (host.as_str(), 443)
-        .to_socket_addrs()
-        .map_err(|e| Error::Io(e))?;
-    let stream = connect_to_some(addrs.as_slice(), host.as_str())?;
-    stream.set_nodelay(true).map_err(|e| Error::Io(e))?;
-
-    let config =
-        ClientConfig::with_platform_verifier().map_err(|e| Error::Tls(TlsError::from(e)))?;
-    let name = ServerName::try_from(host).map_err(|_| Error::Tls(TlsError::InvalidDnsName))?;
-    let client =
-        ClientConnection::new(Arc::new(config), name).map_err(|e| Error::Tls(TlsError::from(e)))?;
-
-    let stream = StreamOwned::new(client, stream);
-    let (websocket, _) = ClientHandshake::start(stream, request, None)?
-        .handshake()
-        .map_err(|e| match e {
-            HandshakeError::Failure(e) => e,
-            HandshakeError::Interrupted(_) => {
-                panic!("Bug: blocking handshake not blocked")
-            }
-        })?;
-    Ok(websocket)
-}
+#[cfg(feature = "proxy")]
+pub(crate) mod proxy;
 
 pub mod client;
 pub mod stream;

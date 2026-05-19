@@ -40,7 +40,7 @@ pub fn get_voices_list() -> Result<Vec<Voice>> {
 /// * `john:smith@socks.google.com:8000`
 /// * `localhost`
 #[cfg(feature = "proxy")]
-#[cfg_attr(docsrs, doc(cfg(feature = "proxy")))]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "blocking", feature = "proxy"))))]
 pub fn get_voices_list_proxy(proxy: &str) -> Result<Vec<Voice>> {
     let proxy = ureq::Proxy::new(proxy)?;
     let config = ureq::config::Config::builder().proxy(Some(proxy)).build();
