@@ -27,3 +27,7 @@ mod blocking;
 #[cfg(feature = "blocking")]
 #[cfg_attr(docsrs, doc(cfg(feature = "blocking")))]
 pub use blocking::*;
+
+#[cfg(feature = "smol-runtime")]
+#[cfg_attr(docsrs, doc(cfg(feature = "smol-runtime")))]
+pub mod soml_runtime;

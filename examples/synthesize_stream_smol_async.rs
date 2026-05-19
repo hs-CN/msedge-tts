@@ -1,14 +1,14 @@
 use msedge_tts::{
     tts::{
-        stream::{msedge_tts_split_async, SynthesizedResponse},
         SpeechConfig,
+        stream::{SynthesizedResponse, soml_runtime::msedge_tts_split_async},
     },
-    voice::get_voices_list_async,
+    voice::smol_runtime::get_voices_list_async,
 };
 use std::{
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
     time::Instant,
 };

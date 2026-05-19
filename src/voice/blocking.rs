@@ -7,7 +7,22 @@ use crate::{constants, error::Result, voice::Voice};
 
 /// Get all available voices
 pub fn get_voices_list() -> Result<Vec<Voice>> {
-    Ok(ureq::get(constants::VOICE_LIST_URL)
+    // ureq default use rustls 'ring' as crypto provider, which is conflict with reqwest
+    // because there is no way to make reqwest use rustls 'ring' as crypto provider
+    // here we use aws-lc-rs as crypto provider for ureq
+    // use platform verifier as root certs
+    let crypto = std::sync::Arc::new(rustls::crypto::aws_lc_rs::default_provider());
+    let tls_config = ureq::tls::TlsConfig::builder()
+        .provider(ureq::tls::TlsProvider::Rustls)
+        .unversioned_rustls_crypto_provider(crypto)
+        .root_certs(ureq::tls::RootCerts::PlatformVerifier)
+        .build();
+    let config = ureq::config::Config::builder()
+        .tls_config(tls_config)
+        .build();
+    Ok(config
+        .new_agent()
+        .get(constants::VOICE_LIST_URL)
         .header("User-Agent", constants::USER_AGENT)
         .call()?
         .body_mut()
@@ -42,8 +57,20 @@ pub fn get_voices_list() -> Result<Vec<Voice>> {
 #[cfg(feature = "proxy")]
 #[cfg_attr(docsrs, doc(cfg(all(feature = "blocking", feature = "proxy"))))]
 pub fn get_voices_list_proxy(proxy: &str) -> Result<Vec<Voice>> {
+    // ureq default use rustls 'ring' as crypto provider
+    // here we use aws-lc-rs as crypto provider
+    // use platform verifier as root certs
+    let crypto = std::sync::Arc::new(rustls::crypto::aws_lc_rs::default_provider());
+    let tls_config = ureq::tls::TlsConfig::builder()
+        .provider(ureq::tls::TlsProvider::Rustls)
+        .unversioned_rustls_crypto_provider(crypto)
+        .root_certs(ureq::tls::RootCerts::PlatformVerifier)
+        .build();
     let proxy = ureq::Proxy::new(proxy)?;
-    let config = ureq::config::Config::builder().proxy(Some(proxy)).build();
+    let config = ureq::config::Config::builder()
+        .tls_config(tls_config)
+        .proxy(Some(proxy))
+        .build();
     Ok(config
         .new_agent()
         .get(constants::VOICE_LIST_URL)
