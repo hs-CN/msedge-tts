@@ -26,7 +26,7 @@ pub enum HttpProxyError {
     #[cfg(feature = "blocking")]
     #[cfg_attr(docsrs, doc(cfg(feature = "blocking")))]
     #[error("tls error: {0}")]
-    TlsError(#[from] crate::tts::blocking::TlsError),
+    TlsError(#[from] crate::tts::TlsError),
 
     #[error("invalid response: {0}")]
     InvalidResponse(#[from] httparse::Error),
@@ -215,3 +215,6 @@ fn build_http_proxy_request(
 
 #[cfg(feature = "blocking")]
 pub(crate) mod blocking;
+
+#[cfg(feature = "smol-runtime")]
+pub(crate) mod smol_runtime;

@@ -1399,6 +1399,7 @@ dependencies = [
  "async-tungstenite",
  "base64",
  "chrono",
+ "futures-rustls",
  "http",
  "httparse",
  "reqwest",

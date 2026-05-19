@@ -98,6 +98,11 @@ pub async fn msedge_tts_split_async()
     split(websocket_connect_async().await?)
 }
 
+#[cfg(feature = "proxy")]
+use crate::tts::{
+    proxy::smol_runtime::ProxyAsyncStream, smol_runtime::websocket_connect_proxy_async,
+};
+
 /// Create Async TTS Stream [SenderAsync] and [ReaderAsync] with proxy
 ///
 /// The proxy protocol is specified by the URI scheme.
@@ -113,7 +118,10 @@ pub async fn msedge_tts_split_proxy_async(
     proxy: http::Uri,
     username: Option<&str>,
     password: Option<&str>,
-) -> Result<(SenderAsync<ProxyAsyncStream>, ReaderAsync<ProxyAsyncStream>)> {
+) -> Result<(
+    SenderAsync<async_tungstenite::smol::ClientStream<ProxyAsyncStream>>,
+    ReaderAsync<async_tungstenite::smol::ClientStream<ProxyAsyncStream>>,
+)> {
     split(websocket_connect_proxy_async(proxy, username, password).await?)
 }
 

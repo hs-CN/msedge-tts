@@ -18,15 +18,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["blocking"]
-proxy = [
-    "ureq?/socks-proxy",
-    "reqwest?/socks",
-    "rustls",
-    "rustls-platform-verifier",
-    "http",
-    "httparse",
-    "base64",
-]
+proxy = ["ureq?/socks-proxy", "reqwest?/socks", "http", "httparse", "base64"]
 blocking = [
     "ureq",
     "tungstenite/__rustls-tls",
@@ -39,6 +31,7 @@ smol-runtime = [
     "async-tungstenite/smol-runtime",
     "async-tungstenite/futures-rustls-platform-verifier",
     "smol",
+    "futures-rustls",
 ]
 tokio-runtime = ["reqwest"]
 gio-runtime = []
@@ -96,6 +89,10 @@ optional = true
 version = "2.0.2"
 optional = true
 
+[dependencies.futures-rustls]
+version = "0.26.0"
+optional = true
+
 
 [dev-dependencies]
 tokio = { version = "1.52.3", features = ["net", "rt", "time"] }
@@ -129,6 +126,14 @@ required-features = ["smol-runtime"]
 
 [[example]]
 name = "get_voices_list_proxy_smol_async"
+required-features = ["smol-runtime", "proxy"]
+
+[[example]]
+name = "synthesize_proxy_smol_async"
+required-features = ["smol-runtime", "proxy"]
+
+[[example]]
+name = "synthesize_stream_proxy_smol_async"
 required-features = ["smol-runtime", "proxy"]
 
 [[example]]

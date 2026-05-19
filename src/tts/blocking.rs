@@ -1,15 +1,7 @@
-use thiserror::Error;
-
-use crate::{error::Result, tts::build_websocket_request};
-
-/// Tls Error
-#[derive(Error, Debug)]
-pub enum TlsError {
-    #[error("invalid DNS name: {0}")]
-    InvalidDnsName(#[from] rustls::pki_types::InvalidDnsNameError),
-    #[error("rustls error: {0}")]
-    TlsError(#[from] rustls::Error),
-}
+use crate::{
+    error::Result,
+    tts::{TlsError, build_websocket_request},
+};
 
 pub fn rustls_stream<T: std::io::Read + std::io::Write>(
     stream: T,
@@ -26,7 +18,9 @@ pub fn rustls_stream<T: std::io::Read + std::io::Write>(
     Ok(StreamOwned::new(client, stream))
 }
 
+// we sure that target websocket server is TLS, so we can use rustls::StreamOwned directly
 pub type RustlsStream<T> = rustls::StreamOwned<rustls::ClientConnection, T>;
+// we sure that target websocket server is TLS, so we can use rustls::StreamOwned directly
 pub type WebSocket<T> = tungstenite::WebSocket<RustlsStream<T>>;
 
 pub fn websocket_connect() -> Result<WebSocket<std::net::TcpStream>> {

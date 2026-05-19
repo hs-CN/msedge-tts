@@ -1,6 +1,7 @@
 //! TTS Client and Stream, SpeechConfig, Response Type.
 
 use crate::error::{Error, Result};
+use thiserror::Error;
 
 /// Synthesis Config
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
@@ -71,6 +72,15 @@ impl AudioMetadata {
             )))
         }
     }
+}
+
+/// Tls Error
+#[derive(Error, Debug)]
+pub enum TlsError {
+    #[error("invalid DNS name: {0}")]
+    InvalidDnsName(#[from] rustls::pki_types::InvalidDnsNameError),
+    #[error("rustls error: {0}")]
+    TlsError(#[from] rustls::Error),
 }
 
 enum Payload {

@@ -1,11 +1,11 @@
-use futures_util::{AsyncRead, AsyncWrite};
 use msedge_tts::{
     tts::{
-        client::{connect_proxy_async, MSEdgeTTSClientAsync},
         SpeechConfig,
+        client::soml_runtime::{MSEdgeTTSClientAsync, connect_proxy_async},
     },
-    voice::get_voices_list_async,
+    voice::smol_runtime::get_voices_list_async,
 };
+use smol::io::{AsyncRead, AsyncWrite};
 use std::time::Instant;
 
 fn main() {
@@ -16,19 +16,19 @@ fn main() {
             if voice.name.contains("YunyangNeural") {
                 println!("choose '{}' to synthesize...", voice.name);
                 let config = SpeechConfig::from(voice);
-                let tts = connect_proxy_async("localhost:10809".parse().unwrap(), None, None)
+                let tts = connect_proxy_async("http://127.0.0.1:7897".parse().unwrap(), None, None)
                     .await
                     .unwrap();
                 synthesize(tts, &config).await;
 
                 let tts =
-                    connect_proxy_async("socks4a://localhost:10808".parse().unwrap(), None, None)
+                    connect_proxy_async("socks4a://127.0.0.1:7897".parse().unwrap(), None, None)
                         .await
                         .unwrap();
                 synthesize(tts, &config).await;
 
                 let tts =
-                    connect_proxy_async("socks5h://localhost:10808".parse().unwrap(), None, None)
+                    connect_proxy_async("socks5h://127.0.0.1:7897".parse().unwrap(), None, None)
                         .await
                         .unwrap();
                 synthesize(tts, &config).await;

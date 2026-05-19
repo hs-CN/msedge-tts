@@ -1,15 +1,18 @@
-use futures_util::{AsyncRead, AsyncWrite};
 use msedge_tts::{
     tts::{
-        stream::{msedge_tts_split_proxy_async, ReaderAsync, SenderAsync, SynthesizedResponse},
         SpeechConfig,
+        stream::{
+            SynthesizedResponse,
+            soml_runtime::{ReaderAsync, SenderAsync, msedge_tts_split_proxy_async},
+        },
     },
-    voice::get_voices_list_async,
+    voice::smol_runtime::get_voices_list_async,
 };
+use smol::io::{AsyncRead, AsyncWrite};
 use std::{
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
     time::Instant,
 };
@@ -23,7 +26,7 @@ fn main() {
                 println!("choose '{}' to synthesize...", voice.name);
                 let config = Arc::new(SpeechConfig::from(voice));
                 let (sender, reader) = msedge_tts_split_proxy_async(
-                    "http://127.0.0.1:10809".parse().unwrap(),
+                    "http://127.0.0.1:7897".parse().unwrap(),
                     None,
                     None,
                 )
@@ -32,7 +35,7 @@ fn main() {
                 synthesize(sender, reader, config.clone()).await;
 
                 let (sender, reader) = msedge_tts_split_proxy_async(
-                    "socks4a://127.0.0.1:10808".parse().unwrap(),
+                    "socks4a://127.0.0.1:7897".parse().unwrap(),
                     None,
                     None,
                 )
@@ -41,7 +44,7 @@ fn main() {
                 synthesize(sender, reader, config.clone()).await;
 
                 let (sender, reader) = msedge_tts_split_proxy_async(
-                    "socks5h://127.0.0.1:10808".parse().unwrap(),
+                    "socks5h://127.0.0.1:7897".parse().unwrap(),
                     None,
                     None,
                 )

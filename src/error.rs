@@ -22,7 +22,7 @@ pub enum Error {
     #[cfg(feature = "blocking")]
     #[cfg_attr(docsrs, doc(cfg(feature = "blocking")))]
     #[error("tls error: {0}")]
-    TlsError(#[from] crate::tts::blocking::TlsError),
+    TlsError(#[from] crate::tts::TlsError),
 
     #[cfg(feature = "proxy")]
     #[cfg_attr(docsrs, doc(cfg(feature = "proxy")))]
