@@ -1,3 +1,4 @@
+[![CI](https://github.com/hs-CN/msedge-tts/actions/workflows/rust.yml/badge.svg)](https://github.com/hs-CN/msedge-tts/actions/workflows/rust.yml)
 # Description
 This library is a wrapper of **MSEdge Read aloud** function API.
 You can use it to synthesize text to speech with many voices MS provided.
