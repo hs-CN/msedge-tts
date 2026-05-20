@@ -3,7 +3,7 @@ use msedge_tts::{
         SpeechConfig,
         stream::{
             SynthesizedResponse,
-            soml_runtime::{ReceiverAsync, SenderAsync, msedge_tts_split_proxy_async},
+            smol_runtime::{ReceiverAsync, SenderAsync, msedge_tts_split_proxy_async},
         },
     },
     voice::smol_runtime::get_voices_list_async,

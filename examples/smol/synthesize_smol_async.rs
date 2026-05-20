@@ -1,5 +1,5 @@
 use msedge_tts::{
-    tts::{SpeechConfig, client::soml_runtime::connect_async},
+    tts::{SpeechConfig, client::smol_runtime::connect_async},
     voice::smol_runtime::get_voices_list_async,
 };
 use std::time::Instant;

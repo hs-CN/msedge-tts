@@ -5,7 +5,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_rustls::{TlsConnector, client::TlsStream};
 
-use crate::tts::client::tokio_runtime::MSEdgeTTSClientAsync;
+use crate::tts::client::MSEdgeTTSClientAsync;
 use crate::tts::stream::tokio_runtime::{ReceiverAsync, SenderAsync, split};
 use crate::{
     error::{HttpProxyError, ProxyError, Result, Socks4ProxyError, Socks5ProxyError},
@@ -346,6 +346,16 @@ async fn websocket_connect_proxy_async(
     Ok(websocket)
 }
 
+/// Create Async TTS [Client](MSEdgeTTSClientAsync) with proxy
+///
+/// The proxy protocol is specified by the URI scheme.
+///
+/// `http`: Proxy. Default when no scheme is specified.  
+/// `https`: HTTPS Proxy.  
+/// `socks4`: SOCKS4 Proxy.  
+/// `socks4a`: SOCKS4a Proxy. Proxy resolves URL hostname.  
+/// `socks5`: SOCKS5 Proxy.  
+/// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
 #[cfg_attr(docsrs, doc(cfg(all(feature = "proxy", feature = "tokio-runtime"))))]
 pub async fn connect_proxy_async(
     proxy: http::Uri,

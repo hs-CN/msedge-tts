@@ -18,7 +18,14 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["blocking"]
-proxy = ["ureq?/socks-proxy", "reqwest?/socks", "http", "httparse", "base64"]
+proxy = [
+    "ureq?/socks-proxy",
+    "reqwest?/socks",
+    "rustls",
+    "http",
+    "httparse",
+    "base64",
+]
 blocking = [
     "ureq",
     "tungstenite/__rustls-tls",
@@ -31,7 +38,9 @@ smol-runtime = [
     "async-tungstenite/smol-runtime",
     "async-tungstenite/futures-rustls-platform-verifier",
     "smol",
+    "futures-util",
     "futures-rustls",
+    "rustls-platform-verifier",
 ]
 tokio-runtime = [
     "reqwest",

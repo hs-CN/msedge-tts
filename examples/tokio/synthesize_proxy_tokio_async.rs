@@ -2,7 +2,7 @@ use futures_util::io::{AsyncRead, AsyncWrite};
 use msedge_tts::{
     tts::{
         SpeechConfig,
-        client::tokio_runtime::{MSEdgeTTSClientAsync, connect_proxy_async},
+        client::{MSEdgeTTSClientAsync, tokio_runtime::connect_proxy_async},
     },
     voice::tokio_runtime::get_voices_list_async,
 };
@@ -20,19 +20,19 @@ fn main() {
                 if voice.name.contains("YunyangNeural") {
                     println!("choose '{}' to synthesize...", voice.name);
                     let config = SpeechConfig::from(voice);
+                    let tts =
+                        connect_proxy_async("http://127.0.0.1:7897".parse().unwrap(), None, None)
+                            .await
+                            .unwrap();
+                    synthesize(tts, &config).await;
+
                     let tts = connect_proxy_async(
-                        "http://127.0.0.1:7897".parse().unwrap(),
+                        "socks4a://127.0.0.1:7897".parse().unwrap(),
                         None,
                         None,
                     )
                     .await
                     .unwrap();
-                    synthesize(tts, &config).await;
-
-                    let tts =
-                        connect_proxy_async("socks4a://127.0.0.1:7897".parse().unwrap(), None, None)
-                            .await
-                            .unwrap();
                     synthesize(tts, &config).await;
 
                     let tts = connect_proxy_async(

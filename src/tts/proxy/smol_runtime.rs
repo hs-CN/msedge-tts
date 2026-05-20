@@ -7,12 +7,12 @@ use smol::{
     net::{TcpStream, resolve},
 };
 
-use crate::tts::stream::soml_runtime::{ReceiverAsync, SenderAsync, split};
+use crate::tts::stream::smol_runtime::{ReceiverAsync, SenderAsync, split};
 use crate::{
     error::{HttpProxyError, ProxyError, Result, Socks4ProxyError, Socks5ProxyError},
     tts::{
         build_websocket_request,
-        client::soml_runtime::MSEdgeTTSClientAsync,
+        client::MSEdgeTTSClientAsync,
         proxy::{
             build_http_proxy_request, build_socks4_connection_request,
             build_socks5_authentication_request, build_socks5_connection_request,

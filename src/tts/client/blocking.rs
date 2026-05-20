@@ -1,14 +1,10 @@
-use crate::{
-    error::Result,
-    tts::{
-        Payload, RustlsStream, SpeechConfig, build_config_message, build_ssml_message,
-        client::SynthesizedAudio, websocket_connect,
-    },
+use crate::error::Result;
+use crate::tts::{
+    Payload, RustlsStream, SpeechConfig, build_config_message, build_ssml_message,
+    client::SynthesizedAudio, websocket_connect,
 };
-use std::{
-    io::{Read, Write},
-    net::TcpStream,
-};
+use std::io::{Read, Write};
+use std::net::TcpStream;
 
 /// Sync Client
 pub struct MSEdgeTTSClient<T: Read + Write>(pub(crate) tungstenite::WebSocket<RustlsStream<T>>);

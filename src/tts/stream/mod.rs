@@ -30,7 +30,7 @@ pub use blocking::*;
 
 #[cfg(feature = "smol-runtime")]
 #[cfg_attr(docsrs, doc(cfg(feature = "smol-runtime")))]
-pub mod soml_runtime;
+pub mod smol_runtime;
 
 #[cfg(feature = "tokio-runtime")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]

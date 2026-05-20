@@ -1,7 +1,7 @@
 use msedge_tts::{
     tts::{
         SpeechConfig,
-        client::soml_runtime::{MSEdgeTTSClientAsync, connect_proxy_async},
+        client::{MSEdgeTTSClientAsync, smol_runtime::connect_proxy_async},
     },
     voice::smol_runtime::get_voices_list_async,
 };

@@ -1,7 +1,7 @@
 use msedge_tts::{
     tts::{
         SpeechConfig,
-        stream::{SynthesizedResponse, soml_runtime::msedge_tts_split_async},
+        stream::{SynthesizedResponse, smol_runtime::msedge_tts_split_async},
     },
     voice::smol_runtime::get_voices_list_async,
 };
