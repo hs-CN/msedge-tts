@@ -48,7 +48,7 @@ impl<T: Read + Write> Sender<T> {
 }
 
 /// Sync TTS Stream Reader
-pub struct Reader<T: Read + Write> {
+pub struct Receiver<T: Read + Write> {
     websocket: Arc<Mutex<tungstenite::WebSocket<RustlsStream<T>>>>,
     can_read_cvar: Arc<(Mutex<bool>, Condvar)>,
     turn_start: bool,
@@ -56,7 +56,7 @@ pub struct Reader<T: Read + Write> {
     turn_end: bool,
 }
 
-impl<T: Read + Write> Reader<T> {
+impl<T: Read + Write> Receiver<T> {
     /// Read Synthesized Audio synchronously.  
     /// **Caution**: One [send](Sender::send) corresponds to multiple [read](Self::read). Next [send](Sender::send) call will block until there no data to read.
     /// [read](Self::read) will block before you call a [send](Sender::send).
@@ -95,14 +95,14 @@ impl<T: Read + Write> Reader<T> {
 
 pub(crate) fn split<T: Read + Write>(
     websocket: tungstenite::WebSocket<RustlsStream<T>>,
-) -> Result<(Sender<T>, Reader<T>)> {
+) -> Result<(Sender<T>, Receiver<T>)> {
     let websocket = Arc::new(Mutex::new(websocket));
     let can_read_cvar = Arc::new((Mutex::new(false), Condvar::new()));
     let sender = Sender {
         websocket: websocket.clone(),
         can_read_cvar: can_read_cvar.clone(),
     };
-    let reader = Reader {
+    let reader = Receiver {
         websocket,
         can_read_cvar,
         turn_start: false,
@@ -113,7 +113,7 @@ pub(crate) fn split<T: Read + Write>(
 }
 
 /// Create Sync TTS Stream [Sender] and [Reader]
-pub fn msedge_tts_split() -> Result<(Sender<TcpStream>, Reader<TcpStream>)> {
+pub fn msedge_tts_split() -> Result<(Sender<TcpStream>, Receiver<TcpStream>)> {
     split(websocket_connect()?)
 }
 

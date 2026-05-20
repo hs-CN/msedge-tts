@@ -9,7 +9,7 @@ use crate::{
             build_http_proxy_request, build_socks4_connection_request,
             build_socks5_authentication_request, build_socks5_connection_request,
         },
-        stream::{Reader, Sender, split},
+        stream::{Receiver, Sender, split},
     },
 };
 
@@ -403,6 +403,6 @@ pub fn msedge_tts_split_proxy(
     proxy: http::Uri,
     username: Option<&str>,
     password: Option<&str>,
-) -> Result<(Sender<ProxyStream>, Reader<ProxyStream>)> {
+) -> Result<(Sender<ProxyStream>, Receiver<ProxyStream>)> {
     split(websocket_connect_proxy(proxy, username, password)?)
 }

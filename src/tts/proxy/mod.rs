@@ -106,3 +106,6 @@ pub(crate) mod blocking;
 
 #[cfg(feature = "smol-runtime")]
 pub(crate) mod smol_runtime;
+
+#[cfg(feature = "tokio-runtime")]
+pub(crate) mod tokio_runtime;

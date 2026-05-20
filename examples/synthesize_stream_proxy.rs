@@ -1,7 +1,7 @@
 use msedge_tts::{
     tts::{
         SpeechConfig,
-        stream::{Reader, Sender, SynthesizedResponse, msedge_tts_split_proxy},
+        stream::{Receiver, Sender, SynthesizedResponse, msedge_tts_split_proxy},
     },
     voice::get_voices_list,
 };
@@ -43,7 +43,7 @@ fn main() {
 
 fn synthesize<T: Read + Write + Send + Sync + 'static>(
     mut sender: Sender<T>,
-    mut reader: Reader<T>,
+    mut reader: Receiver<T>,
     config: Arc<SpeechConfig>,
 ) {
     let signal = Arc::new(AtomicBool::new(false));

@@ -19,3 +19,7 @@ pub use blocking::*;
 #[cfg(feature = "smol-runtime")]
 #[cfg_attr(docsrs, doc(cfg(feature = "smol-runtime")))]
 pub mod soml_runtime;
+
+#[cfg(feature = "tokio-runtime")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
+pub mod tokio_runtime;
