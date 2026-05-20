@@ -7,12 +7,16 @@ use smol::{
     net::{TcpStream, resolve},
 };
 
-use crate::tts::{
-    TlsError,
-    proxy::{
-        HttpProxyError, Socks4ProxyError, Socks5ProxyError, build_http_proxy_request,
-        build_socks4_connection_request, build_socks5_authentication_request,
-        build_socks5_connection_request,
+use crate::tts::stream::soml_runtime::{ReceiverAsync, SenderAsync, split};
+use crate::{
+    error::{HttpProxyError, ProxyError, Result, Socks4ProxyError, Socks5ProxyError},
+    tts::{
+        build_websocket_request,
+        client::soml_runtime::MSEdgeTTSClientAsync,
+        proxy::{
+            build_http_proxy_request, build_socks4_connection_request,
+            build_socks5_authentication_request, build_socks5_connection_request,
+        },
     },
 };
 
@@ -67,7 +71,7 @@ impl AsyncWrite for ProxyAsyncStream {
     }
 }
 
-pub async fn socks4_proxy_async(
+async fn socks4_proxy_async(
     target_host: &str,
     proxy: http::Uri,
     username: Option<&str>,
@@ -118,7 +122,7 @@ pub async fn socks4_proxy_async(
     }
 }
 
-pub async fn socks5_proxy_asnyc(
+async fn socks5_proxy_asnyc(
     target_host: &str,
     proxy: http::Uri,
     username: Option<&str>,
@@ -240,7 +244,7 @@ pub async fn socks5_proxy_asnyc(
     }
 }
 
-pub async fn http_proxy_async(
+async fn http_proxy_async(
     target_host: &str,
     proxy: http::Uri,
     username: Option<&str>,
@@ -275,10 +279,8 @@ pub async fn http_proxy_async(
             }
             "https" => {
                 let stream = TcpStream::connect((proxy_host.as_str(), proxy_port)).await?;
-                let config = futures_rustls::rustls::ClientConfig::with_platform_verifier()
-                    .map_err(|e| TlsError::TlsError(e))?;
-                let name = rustls::pki_types::ServerName::try_from(proxy_host)
-                    .map_err(|e| TlsError::InvalidDnsName(e))?;
+                let config = futures_rustls::rustls::ClientConfig::with_platform_verifier()?;
+                let name = rustls::pki_types::ServerName::try_from(proxy_host)?;
                 let connector = futures_rustls::TlsConnector::from(std::sync::Arc::new(config));
 
                 let stream = connector.connect(name, stream).await?;
@@ -313,4 +315,81 @@ pub async fn http_proxy_async(
             response.reason.unwrap_or("").to_owned(),
         )),
     }
+}
+
+async fn websocket_connect_proxy_async(
+    proxy: http::Uri,
+    username: Option<&str>,
+    password: Option<&str>,
+) -> Result<
+    async_tungstenite::WebSocketStream<async_tungstenite::smol::ClientStream<ProxyAsyncStream>>,
+> {
+    let request = build_websocket_request()?;
+    let stream: std::result::Result<ProxyAsyncStream, ProxyError> = match proxy.scheme_str() {
+        Some(scheme) => match scheme.to_lowercase().as_str() {
+            "socks4" | "socks4a" => {
+                socks4_proxy_async(request.uri().host().unwrap(), proxy, username)
+                    .await
+                    .map_err(|e| e.into())
+            }
+            "socks5" | "socks5h" => {
+                socks5_proxy_asnyc(request.uri().host().unwrap(), proxy, username, password)
+                    .await
+                    .map_err(|e| e.into())
+            }
+            "http" | "https" => {
+                http_proxy_async(request.uri().host().unwrap(), proxy, username, password)
+                    .await
+                    .map_err(|e| e.into())
+            }
+            _ => Err(ProxyError::NotSupportedScheme(proxy)),
+        },
+        None => http_proxy_async(request.uri().host().unwrap(), proxy, username, password)
+            .await
+            .map_err(|e| e.into()),
+    };
+    let (websocket, _) = async_tungstenite::smol::client_async_tls(request, stream?).await?;
+    Ok(websocket)
+}
+
+/// Create Async TTS [Client](MSEdgeTTSClientAsync) with proxy
+///
+/// The proxy protocol is specified by the URI scheme.
+///
+/// `http`: Proxy. Default when no scheme is specified.  
+/// `https`: HTTPS Proxy.  
+/// `socks4`: SOCKS4 Proxy.  
+/// `socks4a`: SOCKS4a Proxy. Proxy resolves URL hostname.  
+/// `socks5`: SOCKS5 Proxy.  
+/// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
+#[cfg_attr(docsrs, doc(cfg(all(feature = "proxy", feature = "smol-runtime"))))]
+pub async fn connect_proxy_async(
+    proxy: http::Uri,
+    username: Option<&str>,
+    password: Option<&str>,
+) -> Result<MSEdgeTTSClientAsync<async_tungstenite::smol::ClientStream<ProxyAsyncStream>>> {
+    Ok(MSEdgeTTSClientAsync(
+        websocket_connect_proxy_async(proxy, username, password).await?,
+    ))
+}
+
+/// Create Async TTS Stream [SenderAsync] and [ReaderAsync] with proxy
+///
+/// The proxy protocol is specified by the URI scheme.
+///
+/// `http`: Proxy. Default when no scheme is specified.  
+/// `https`: HTTPS Proxy.  
+/// `socks4`: SOCKS4 Proxy.  
+/// `socks4a`: SOCKS4a Proxy. Proxy resolves URL hostname.  
+/// `socks5`: SOCKS5 Proxy.  
+/// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  \
+pub async fn msedge_tts_split_proxy_async(
+    proxy: http::Uri,
+    username: Option<&str>,
+    password: Option<&str>,
+) -> Result<(
+    SenderAsync<async_tungstenite::smol::ClientStream<ProxyAsyncStream>>,
+    ReceiverAsync<async_tungstenite::smol::ClientStream<ProxyAsyncStream>>,
+)> {
+    split(websocket_connect_proxy_async(proxy, username, password).await?)
 }

@@ -12,7 +12,7 @@ use crate::{
     error::Result,
     tts::{
         Payload, SpeechConfig, build_config_message, build_ssml_message,
-        smol_runtime::websocket_connect_async, stream::SynthesizedResponse,
+        stream::SynthesizedResponse, websocket_connect_smol_async,
     },
 };
 
@@ -46,7 +46,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin> SenderAsync<T> {
 }
 
 /// Async TTS Stream Reader
-pub struct ReaderAsync<T> {
+pub struct ReceiverAsync<T> {
     receiver: WebSocketReceiver<T>,
     can_read: Arc<Mutex<bool>>,
     turn_start: bool,
@@ -54,7 +54,7 @@ pub struct ReaderAsync<T> {
     turn_end: bool,
 }
 
-impl<T: AsyncRead + AsyncWrite + Unpin> ReaderAsync<T> {
+impl<T: AsyncRead + AsyncWrite + Unpin> ReceiverAsync<T> {
     /// Read Synthesized Audio asynchronously.  
     /// **Caution**: One [send](SenderAsync::send) corresponds to multiple [read](Self::read). Next [send](SenderAsync::send) call will block until there no data to read.
     /// [read](Self::read) will block before you call a [send](SenderAsync::send).
@@ -92,42 +92,9 @@ impl<T: AsyncRead + AsyncWrite + Unpin> ReaderAsync<T> {
     }
 }
 
-/// Create Async TTS Stream [SenderAsync] and [ReaderAsync]
-pub async fn msedge_tts_split_async()
--> Result<(SenderAsync<ConnectStream>, ReaderAsync<ConnectStream>)> {
-    split(websocket_connect_async().await?)
-}
-
-#[cfg(feature = "proxy")]
-use crate::tts::{
-    proxy::smol_runtime::ProxyAsyncStream, smol_runtime::websocket_connect_proxy_async,
-};
-
-/// Create Async TTS Stream [SenderAsync] and [ReaderAsync] with proxy
-///
-/// The proxy protocol is specified by the URI scheme.
-///
-/// `http`: Proxy. Default when no scheme is specified.  
-/// `https`: HTTPS Proxy.  
-/// `socks4`: SOCKS4 Proxy.  
-/// `socks4a`: SOCKS4a Proxy. Proxy resolves URL hostname.  
-/// `socks5`: SOCKS5 Proxy.  
-/// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  \
-#[cfg(feature = "proxy")]
-pub async fn msedge_tts_split_proxy_async(
-    proxy: http::Uri,
-    username: Option<&str>,
-    password: Option<&str>,
-) -> Result<(
-    SenderAsync<async_tungstenite::smol::ClientStream<ProxyAsyncStream>>,
-    ReaderAsync<async_tungstenite::smol::ClientStream<ProxyAsyncStream>>,
-)> {
-    split(websocket_connect_proxy_async(proxy, username, password).await?)
-}
-
-fn split<T: AsyncRead + AsyncWrite + Unpin>(
+pub(crate) fn split<T: AsyncRead + AsyncWrite + Unpin>(
     websocket: WebSocketStream<T>,
-) -> Result<(SenderAsync<T>, ReaderAsync<T>)> {
+) -> Result<(SenderAsync<T>, ReceiverAsync<T>)> {
     let (sender, receiver) = websocket.split();
     let can_read = Arc::new(Mutex::new(false));
     Ok((
@@ -135,7 +102,7 @@ fn split<T: AsyncRead + AsyncWrite + Unpin>(
             sender,
             can_read: can_read.clone(),
         },
-        ReaderAsync {
+        ReceiverAsync {
             receiver,
             can_read,
             turn_start: false,
@@ -144,3 +111,13 @@ fn split<T: AsyncRead + AsyncWrite + Unpin>(
         },
     ))
 }
+
+/// Create Async TTS Stream [SenderAsync] and [ReaderAsync]
+pub async fn msedge_tts_split_async()
+-> Result<(SenderAsync<ConnectStream>, ReceiverAsync<ConnectStream>)> {
+    split(websocket_connect_smol_async().await?)
+}
+
+#[cfg(feature = "proxy")]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "smol-runtime", feature = "proxy"))))]
+pub use crate::tts::proxy::smol_runtime::msedge_tts_split_proxy_async;

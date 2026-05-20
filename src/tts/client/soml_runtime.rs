@@ -4,12 +4,12 @@ use crate::{
     error::Result,
     tts::{
         Payload, SpeechConfig, build_config_message, build_ssml_message, client::SynthesizedAudio,
-        smol_runtime::websocket_connect_async,
+        websocket_connect_smol_async,
     },
 };
 
 /// Async Client
-pub struct MSEdgeTTSClientAsync<T>(async_tungstenite::WebSocketStream<T>);
+pub struct MSEdgeTTSClientAsync<T>(pub(crate) async_tungstenite::WebSocketStream<T>);
 
 impl<T: AsyncRead + AsyncWrite + Unpin> MSEdgeTTSClientAsync<T> {
     /// Synthesize text to speech with a [SpeechConfig] asynchronously
@@ -67,32 +67,9 @@ impl<T: AsyncRead + AsyncWrite + Unpin> MSEdgeTTSClientAsync<T> {
 /// Create Async TTS [Client](MSEdgeTTSClientAsync)
 pub async fn connect_async() -> Result<MSEdgeTTSClientAsync<async_tungstenite::smol::ConnectStream>>
 {
-    Ok(MSEdgeTTSClientAsync(websocket_connect_async().await?))
+    Ok(MSEdgeTTSClientAsync(websocket_connect_smol_async().await?))
 }
 
 #[cfg(feature = "proxy")]
-use crate::tts::{
-    proxy::smol_runtime::ProxyAsyncStream, smol_runtime::websocket_connect_proxy_async,
-};
-
-/// Create Async TTS [Client](MSEdgeTTSClientAsync) with proxy
-///
-/// The proxy protocol is specified by the URI scheme.
-///
-/// `http`: Proxy. Default when no scheme is specified.  
-/// `https`: HTTPS Proxy.  
-/// `socks4`: SOCKS4 Proxy.  
-/// `socks4a`: SOCKS4a Proxy. Proxy resolves URL hostname.  
-/// `socks5`: SOCKS5 Proxy.  
-/// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
-#[cfg(feature = "proxy")]
-#[cfg_attr(docsrs, doc(cfg(all(feature = "proxy", feature = "smol-runtime"))))]
-pub async fn connect_proxy_async(
-    proxy: http::Uri,
-    username: Option<&str>,
-    password: Option<&str>,
-) -> Result<MSEdgeTTSClientAsync<async_tungstenite::smol::ClientStream<ProxyAsyncStream>>> {
-    Ok(MSEdgeTTSClientAsync(
-        websocket_connect_proxy_async(proxy, username, password).await?,
-    ))
-}
+#[cfg_attr(docsrs, doc(cfg(all(feature = "smol-runtime", feature = "proxy"))))]
+pub use crate::tts::proxy::smol_runtime::connect_proxy_async;

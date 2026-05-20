@@ -1,10 +1,8 @@
 use crate::{
     error::Result,
     tts::{
-        Payload, SpeechConfig,
-        blocking::{WebSocket, websocket_connect},
-        build_config_message, build_ssml_message,
-        client::SynthesizedAudio,
+        Payload, RustlsStream, SpeechConfig, build_config_message, build_ssml_message,
+        client::SynthesizedAudio, websocket_connect,
     },
 };
 use std::{
@@ -13,7 +11,7 @@ use std::{
 };
 
 /// Sync Client
-pub struct MSEdgeTTSClient<T: Read + Write>(WebSocket<T>);
+pub struct MSEdgeTTSClient<T: Read + Write>(pub(crate) tungstenite::WebSocket<RustlsStream<T>>);
 
 impl<T: Read + Write> MSEdgeTTSClient<T> {
     /// Synthesize text to speech with a [SpeechConfig] synchronously
@@ -67,26 +65,5 @@ pub fn connect() -> Result<MSEdgeTTSClient<TcpStream>> {
 }
 
 #[cfg(feature = "proxy")]
-use crate::tts::{blocking::websocket_connect_proxy, proxy::blocking::ProxyStream};
-
-/// Create Sync TTS [Client](MSEdgeTTSClient) with proxy
-///
-/// The proxy protocol is specified by the URI scheme.
-///
-/// `http`: Proxy. Default when no scheme is specified.  
-/// `https`: HTTPS Proxy.  
-/// `socks4`: SOCKS4 Proxy.  
-/// `socks4a`: SOCKS4a Proxy. Proxy resolves URL hostname.  
-/// `socks5`: SOCKS5 Proxy.  
-/// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
-#[cfg(feature = "proxy")]
 #[cfg_attr(docsrs, doc(cfg(all(feature = "blocking", feature = "proxy"))))]
-pub fn connect_proxy(
-    proxy: http::Uri,
-    username: Option<&str>,
-    password: Option<&str>,
-) -> Result<MSEdgeTTSClient<ProxyStream>> {
-    Ok(MSEdgeTTSClient(websocket_connect_proxy(
-        proxy, username, password,
-    )?))
-}
+pub use crate::tts::proxy::blocking::connect_proxy;

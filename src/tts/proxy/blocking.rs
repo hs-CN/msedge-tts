@@ -1,14 +1,15 @@
 use std::io::{Read, Write};
 
 use crate::{
-    error::Result,
+    error::{HttpProxyError, Result, Socks4ProxyError, Socks5ProxyError},
     tts::{
-        blocking::{RustlsStream, rustls_stream},
+        RustlsStream, build_websocket_request,
+        client::MSEdgeTTSClient,
         proxy::{
-            HttpProxyError, Socks4ProxyError, Socks5ProxyError, build_http_proxy_request,
-            build_socks4_connection_request, build_socks5_authentication_request,
-            build_socks5_connection_request,
+            build_http_proxy_request, build_socks4_connection_request,
+            build_socks5_authentication_request, build_socks5_connection_request,
         },
+        stream::{Reader, Sender, split},
     },
 };
 
@@ -42,7 +43,7 @@ impl std::io::Write for ProxyStream {
     }
 }
 
-pub fn socks4_proxy(
+fn socks4_proxy(
     target_host: &str,
     proxy: http::Uri,
     username: Option<&str>,
@@ -101,7 +102,7 @@ pub fn socks4_proxy(
     }
 }
 
-pub fn socks5_proxy(
+fn socks5_proxy(
     target_host: &str,
     proxy: http::Uri,
     username: Option<&str>,
@@ -227,19 +228,27 @@ pub fn socks5_proxy(
     }
 }
 
-pub fn http_proxy(
+fn http_proxy(
     target_host: &str,
     proxy: http::Uri,
     username: Option<&str>,
     password: Option<&str>,
 ) -> std::result::Result<ProxyStream, HttpProxyError> {
-    if proxy.host().is_none() {
+    use rustls::pki_types::ServerName;
+    use rustls::{ClientConfig, ClientConnection, StreamOwned};
+    use rustls_platform_verifier::ConfigVerifierExt;
+    use std::sync::Arc;
+
+    if let Some(proxy_host) = proxy.host() {
+        if proxy_host.is_empty() {
+            return Err(HttpProxyError::EmptyProxyServerHostName(proxy));
+        }
+    } else {
         return Err(HttpProxyError::NoProxyServerHostName(proxy));
     }
-    let proxy_host = proxy.host().unwrap();
-    if proxy_host.is_empty() {
-        return Err(HttpProxyError::EmptyProxyServerHostName(proxy));
-    }
+
+    let proxy_host = proxy.host().unwrap().to_owned();
+
     let proxy_port = proxy.port_u16().unwrap_or(match proxy.scheme_str() {
         None => 80,
         Some(scheme) => match scheme.to_lowercase().as_str() {
@@ -261,9 +270,16 @@ pub fn http_proxy(
                 ProxyStream::TcpStream(stream)
             }
             "https" => {
-                let stream = std::net::TcpStream::connect((proxy_host, 443))?;
+                let stream = std::net::TcpStream::connect((proxy_host.as_str(), 443))?;
                 stream.set_nodelay(true)?;
-                let stream = rustls_stream(stream, proxy_host.to_owned())?;
+
+                let config = ClientConfig::with_platform_verifier()
+                    .map_err(|e| HttpProxyError::RustlsError(e))?;
+                let name = ServerName::try_from(proxy_host)
+                    .map_err(|e| HttpProxyError::InvalidDnsName(e))?;
+                let client = ClientConnection::new(Arc::new(config), name)
+                    .map_err(|e| HttpProxyError::RustlsError(e))?;
+                let stream = StreamOwned::new(client, stream);
                 ProxyStream::TlsStream(stream)
             }
             _ => return Err(HttpProxyError::NotSupportedScheme(proxy)),
@@ -293,4 +309,100 @@ pub fn http_proxy(
             response.reason.unwrap_or("").to_owned(),
         )),
     }
+}
+
+use crate::error::ProxyError;
+
+fn websocket_connect_proxy(
+    proxy: http::Uri,
+    username: Option<&str>,
+    password: Option<&str>,
+) -> Result<tungstenite::WebSocket<RustlsStream<ProxyStream>>> {
+    use rustls::pki_types::ServerName;
+    use rustls::{ClientConfig, ClientConnection, StreamOwned};
+    use rustls_platform_verifier::ConfigVerifierExt;
+    use std::sync::Arc;
+    use tungstenite::ClientHandshake;
+    use tungstenite::error::*;
+    use tungstenite::handshake::HandshakeError;
+
+    let request = build_websocket_request()?;
+    let target_host = request
+        .uri()
+        .host()
+        .ok_or(Error::Url(UrlError::NoHostName))?
+        .to_owned();
+    let stream: std::result::Result<ProxyStream, ProxyError> = match proxy.scheme_str() {
+        Some(scheme) => match scheme.to_lowercase().as_str() {
+            "socks4" | "socks4a" => {
+                socks4_proxy(target_host.as_str(), proxy, username).map_err(|e| e.into())
+            }
+            "socks5" | "socks5h" => {
+                socks5_proxy(target_host.as_str(), proxy, username, password).map_err(|e| e.into())
+            }
+            "http" | "https" => {
+                http_proxy(target_host.as_str(), proxy, username, password).map_err(|e| e.into())
+            }
+            _ => Err(ProxyError::NotSupportedScheme(proxy)),
+        },
+        None => http_proxy(target_host.as_str(), proxy, username, password).map_err(|e| e.into()),
+    };
+
+    let config = ClientConfig::with_platform_verifier()
+        .map_err(|e| Error::Tls(TlsError::Rustls(Box::new(e))))?;
+    let name =
+        ServerName::try_from(target_host).map_err(|_| Error::Tls(TlsError::InvalidDnsName))?;
+    let client = ClientConnection::new(Arc::new(config), name)
+        .map_err(|e| Error::Tls(TlsError::Rustls(Box::new(e))))?;
+
+    let stream = StreamOwned::new(client, stream?);
+    let (websocket, _) = ClientHandshake::start(stream, request, None)?
+        .handshake()
+        .map_err(|e| match e {
+            HandshakeError::Failure(e) => e,
+            HandshakeError::Interrupted(_) => {
+                panic!("Bug: blocking handshake not blocked")
+            }
+        })?;
+    Ok(websocket)
+}
+
+/// Create Sync TTS [Client](MSEdgeTTSClient) with proxy
+///
+/// The proxy protocol is specified by the URI scheme.
+///
+/// `http`: Proxy. Default when no scheme is specified.  
+/// `https`: HTTPS Proxy.  
+/// `socks4`: SOCKS4 Proxy.  
+/// `socks4a`: SOCKS4a Proxy. Proxy resolves URL hostname.  
+/// `socks5`: SOCKS5 Proxy.  
+/// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
+#[cfg_attr(docsrs, doc(cfg(all(feature = "blocking", feature = "proxy"))))]
+pub fn connect_proxy(
+    proxy: http::Uri,
+    username: Option<&str>,
+    password: Option<&str>,
+) -> Result<MSEdgeTTSClient<ProxyStream>> {
+    Ok(MSEdgeTTSClient(websocket_connect_proxy(
+        proxy, username, password,
+    )?))
+}
+
+/// Create Sync TTS Stream [Sender] and [Reader] with proxy
+///
+/// The proxy protocol is specified by the URI scheme.
+///
+/// `http`: Proxy. Default when no scheme is specified.  
+/// `https`: HTTPS Proxy.  
+/// `socks4`: SOCKS4 Proxy.  
+/// `socks4a`: SOCKS4a Proxy. Proxy resolves URL hostname.  
+/// `socks5`: SOCKS5 Proxy.  
+/// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
+#[cfg_attr(docsrs, doc(cfg(all(feature = "blocking", feature = "proxy"))))]
+pub fn msedge_tts_split_proxy(
+    proxy: http::Uri,
+    username: Option<&str>,
+    password: Option<&str>,
+) -> Result<(Sender<ProxyStream>, Reader<ProxyStream>)> {
+    split(websocket_connect_proxy(proxy, username, password)?)
 }

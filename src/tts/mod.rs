@@ -1,7 +1,6 @@
 //! TTS Client and Stream, SpeechConfig, Response Type.
 
 use crate::error::{Error, Result};
-use thiserror::Error;
 
 /// Synthesis Config
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
@@ -74,14 +73,8 @@ impl AudioMetadata {
     }
 }
 
-/// Tls Error
-#[derive(Error, Debug)]
-pub enum TlsError {
-    #[error("invalid DNS name: {0}")]
-    InvalidDnsName(#[from] rustls::pki_types::InvalidDnsNameError),
-    #[error("rustls error: {0}")]
-    TlsError(#[from] rustls::Error),
-}
+pub mod client;
+pub mod stream;
 
 enum Payload {
     AudioBytes((tungstenite::Bytes, usize)),
@@ -191,7 +184,7 @@ fn gen_sec_ms_gec() -> String {
     hex_str
 }
 
-fn build_websocket_request() -> Result<tungstenite::handshake::client::Request> {
+fn build_websocket_request() -> tungstenite::Result<tungstenite::handshake::client::Request> {
     use crate::constants;
     use tungstenite::client::IntoClientRequest;
     use tungstenite::http::header;
@@ -215,14 +208,65 @@ fn build_websocket_request() -> Result<tungstenite::handshake::client::Request> 
     Ok(request)
 }
 
+// we sure that target websocket server is TLS, so we can use rustls::StreamOwned directly
 #[cfg(feature = "blocking")]
-pub(crate) mod blocking;
+type RustlsStream<T> = rustls::StreamOwned<rustls::ClientConnection, T>;
+
+#[cfg(feature = "blocking")]
+fn websocket_connect() -> Result<tungstenite::WebSocket<RustlsStream<std::net::TcpStream>>> {
+    use rustls::pki_types::ServerName;
+    use rustls::{ClientConfig, ClientConnection, StreamOwned};
+    use rustls_platform_verifier::ConfigVerifierExt;
+    use std::sync::Arc;
+    use tungstenite::{ClientHandshake, Error, HandshakeError, error::*};
+
+    let request = build_websocket_request()?;
+    let host = request
+        .uri()
+        .host()
+        .ok_or(Error::Url(UrlError::NoHostName))?
+        .to_owned();
+
+    let stream = std::net::TcpStream::connect((host.as_str(), 443)).map_err(|e| Error::Io(e))?;
+    stream.set_nodelay(true).map_err(|e| Error::Io(e))?;
+
+    let config = ClientConfig::with_platform_verifier()
+        .map_err(|e| Error::Tls(TlsError::Rustls(Box::new(e))))?;
+    let name = ServerName::try_from(host).map_err(|_| Error::Tls(TlsError::InvalidDnsName))?;
+    let client = ClientConnection::new(Arc::new(config), name)
+        .map_err(|e| Error::Tls(TlsError::Rustls(Box::new(e))))?;
+
+    let stream = StreamOwned::new(client, stream);
+    let (websocket, _) = ClientHandshake::start(stream, request, None)?
+        .handshake()
+        .map_err(|e| match e {
+            HandshakeError::Failure(e) => e,
+            HandshakeError::Interrupted(_) => {
+                panic!("Bug: blocking handshake not blocked")
+            }
+        })?;
+    Ok(websocket)
+}
 
 #[cfg(feature = "smol-runtime")]
-pub(crate) mod smol_runtime;
+async fn websocket_connect_smol_async() -> Result<
+    async_tungstenite::WebSocketStream<async_tungstenite::smol::ClientStream<smol::net::TcpStream>>,
+> {
+    let request = build_websocket_request()?;
+    let (websocket, _) = async_tungstenite::smol::connect_async(request).await?;
+    Ok(websocket)
+}
+
+#[cfg(feature = "tokio-runtime")]
+async fn websocket_connect_tokio_async() -> Result<
+    async_tungstenite::WebSocketStream<
+        async_tungstenite::tokio::ClientStream<tokio::net::TcpStream>,
+    >,
+> {
+    let request = build_websocket_request()?;
+    let (websocket, _) = async_tungstenite::tokio::connect_async(request).await?;
+    Ok(websocket)
+}
 
 #[cfg(feature = "proxy")]
-pub(crate) mod proxy;
-
-pub mod client;
-pub mod stream;
+mod proxy;

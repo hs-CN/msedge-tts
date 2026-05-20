@@ -3,7 +3,7 @@ use msedge_tts::{
         SpeechConfig,
         stream::{
             SynthesizedResponse,
-            soml_runtime::{ReaderAsync, SenderAsync, msedge_tts_split_proxy_async},
+            soml_runtime::{ReceiverAsync, SenderAsync, msedge_tts_split_proxy_async},
         },
     },
     voice::smol_runtime::get_voices_list_async,
@@ -59,7 +59,7 @@ fn main() {
 
 async fn synthesize<T: AsyncRead + AsyncWrite + Unpin + Send + Sync + 'static>(
     mut sender: SenderAsync<T>,
-    mut reader: ReaderAsync<T>,
+    mut reader: ReceiverAsync<T>,
     config: Arc<SpeechConfig>,
 ) {
     let signal = Arc::new(AtomicBool::new(false));

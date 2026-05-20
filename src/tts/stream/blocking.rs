@@ -7,16 +7,14 @@ use std::{
 use crate::{
     error::Result,
     tts::{
-        Payload, SpeechConfig,
-        blocking::{WebSocket, websocket_connect},
-        build_config_message, build_ssml_message,
-        stream::SynthesizedResponse,
+        Payload, RustlsStream, SpeechConfig, build_config_message, build_ssml_message,
+        stream::SynthesizedResponse, websocket_connect,
     },
 };
 
 /// Sync TTS Stream Sender
 pub struct Sender<T: Read + Write> {
-    websocket: Arc<Mutex<WebSocket<T>>>,
+    websocket: Arc<Mutex<tungstenite::WebSocket<RustlsStream<T>>>>,
     can_read_cvar: Arc<(Mutex<bool>, Condvar)>,
 }
 
@@ -51,7 +49,7 @@ impl<T: Read + Write> Sender<T> {
 
 /// Sync TTS Stream Reader
 pub struct Reader<T: Read + Write> {
-    websocket: Arc<Mutex<WebSocket<T>>>,
+    websocket: Arc<Mutex<tungstenite::WebSocket<RustlsStream<T>>>>,
     can_read_cvar: Arc<(Mutex<bool>, Condvar)>,
     turn_start: bool,
     response: bool,
@@ -95,7 +93,9 @@ impl<T: Read + Write> Reader<T> {
     }
 }
 
-fn split<T: Read + Write>(websocket: WebSocket<T>) -> Result<(Sender<T>, Reader<T>)> {
+pub(crate) fn split<T: Read + Write>(
+    websocket: tungstenite::WebSocket<RustlsStream<T>>,
+) -> Result<(Sender<T>, Reader<T>)> {
     let websocket = Arc::new(Mutex::new(websocket));
     let can_read_cvar = Arc::new((Mutex::new(false), Condvar::new()));
     let sender = Sender {
@@ -118,24 +118,5 @@ pub fn msedge_tts_split() -> Result<(Sender<TcpStream>, Reader<TcpStream>)> {
 }
 
 #[cfg(feature = "proxy")]
-use crate::tts::{blocking::websocket_connect_proxy, proxy::blocking::ProxyStream};
-
-/// Create Sync TTS Stream [Sender] and [Reader] with proxy
-///
-/// The proxy protocol is specified by the URI scheme.
-///
-/// `http`: Proxy. Default when no scheme is specified.  
-/// `https`: HTTPS Proxy.  
-/// `socks4`: SOCKS4 Proxy.  
-/// `socks4a`: SOCKS4a Proxy. Proxy resolves URL hostname.  
-/// `socks5`: SOCKS5 Proxy.  
-/// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
-#[cfg(feature = "proxy")]
 #[cfg_attr(docsrs, doc(cfg(all(feature = "blocking", feature = "proxy"))))]
-pub fn msedge_tts_split_proxy(
-    proxy: http::Uri,
-    username: Option<&str>,
-    password: Option<&str>,
-) -> Result<(Sender<ProxyStream>, Reader<ProxyStream>)> {
-    split(websocket_connect_proxy(proxy, username, password)?)
-}
+pub use crate::tts::proxy::blocking::msedge_tts_split_proxy;
