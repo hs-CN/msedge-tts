@@ -101,6 +101,26 @@ fn build_http_proxy_request(
     }
 }
 
+/// Extract `(username, password)` from the URI authority's userinfo.
+///
+/// Supports `user@host`, `user:pass@host`, and no-userinfo formats.
+pub(crate) fn parse_userinfo(uri: &http::Uri) -> (Option<String>, Option<String>) {
+    if let Some(authority) = uri.authority() {
+        let s = authority.as_str();
+        if let Some(at) = s.rfind('@') {
+            let userinfo = &s[..at];
+            if let Some(colon) = userinfo.find(':') {
+                return (
+                    Some(userinfo[..colon].to_owned()),
+                    Some(userinfo[colon + 1..].to_owned()),
+                );
+            }
+            return (Some(userinfo.to_owned()), None);
+        }
+    }
+    (None, None)
+}
+
 #[cfg(feature = "blocking")]
 pub(crate) mod blocking;
 
@@ -109,3 +129,46 @@ pub(crate) mod smol_runtime;
 
 #[cfg(feature = "tokio-runtime")]
 pub(crate) mod tokio_runtime;
+
+mod tests {
+    use super::parse_userinfo;
+
+    #[test]
+    fn parse_userinfo_none() {
+        let uri = "http://127.0.0.1:8080".parse().unwrap();
+        assert_eq!(parse_userinfo(&uri), (None, None));
+    }
+
+    #[test]
+    fn parse_userinfo_username_only() {
+        let uri = "http://john@127.0.0.1:8080".parse().unwrap();
+        assert_eq!(parse_userinfo(&uri), (Some("john".into()), None));
+    }
+
+    #[test]
+    fn parse_userinfo_username_and_password() {
+        let uri = "http://john:smith@127.0.0.1:8080".parse().unwrap();
+        assert_eq!(
+            parse_userinfo(&uri),
+            (Some("john".into()), Some("smith".into()))
+        );
+    }
+
+    #[test]
+    fn parse_userinfo_password_with_at() {
+        let uri = "http://user:p@ss@host:8000".parse().unwrap();
+        assert_eq!(
+            parse_userinfo(&uri),
+            (Some("user".into()), Some("p@ss".into()))
+        );
+    }
+
+    #[test]
+    fn parse_userinfo_socks_scheme() {
+        let uri = "socks5://alice:secret@proxy:1080".parse().unwrap();
+        assert_eq!(
+            parse_userinfo(&uri),
+            (Some("alice".into()), Some("secret".into()))
+        );
+    }
+}

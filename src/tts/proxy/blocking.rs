@@ -7,7 +7,7 @@ use crate::{
         client::MSEdgeTTSClient,
         proxy::{
             build_http_proxy_request, build_socks4_connection_request,
-            build_socks5_authentication_request, build_socks5_connection_request,
+            build_socks5_authentication_request, build_socks5_connection_request, parse_userinfo,
         },
         stream::{Receiver, Sender, split},
     },
@@ -313,11 +313,7 @@ fn http_proxy(
 
 use crate::error::ProxyError;
 
-fn websocket_connect_proxy(
-    proxy: http::Uri,
-    username: Option<&str>,
-    password: Option<&str>,
-) -> Result<tungstenite::WebSocket<RustlsStream<ProxyStream>>> {
+fn websocket_connect_proxy(uri: &str) -> Result<tungstenite::WebSocket<RustlsStream<ProxyStream>>> {
     use rustls::pki_types::ServerName;
     use rustls::{ClientConfig, ClientConnection, StreamOwned};
     use rustls_platform_verifier::ConfigVerifierExt;
@@ -325,6 +321,9 @@ fn websocket_connect_proxy(
     use tungstenite::ClientHandshake;
     use tungstenite::error::*;
     use tungstenite::handshake::HandshakeError;
+
+    let proxy: http::Uri = uri.parse().map_err(ProxyError::InvalidProxyUri)?;
+    let (username, password) = parse_userinfo(&proxy);
 
     let request = build_websocket_request()?;
     let target_host = request
@@ -335,17 +334,31 @@ fn websocket_connect_proxy(
     let stream: std::result::Result<ProxyStream, ProxyError> = match proxy.scheme_str() {
         Some(scheme) => match scheme.to_lowercase().as_str() {
             "socks4" | "socks4a" => {
-                socks4_proxy(target_host.as_str(), proxy, username).map_err(|e| e.into())
+                socks4_proxy(target_host.as_str(), proxy, username.as_deref()).map_err(|e| e.into())
             }
-            "socks5" | "socks5h" => {
-                socks5_proxy(target_host.as_str(), proxy, username, password).map_err(|e| e.into())
-            }
-            "http" | "https" => {
-                http_proxy(target_host.as_str(), proxy, username, password).map_err(|e| e.into())
-            }
+            "socks5" | "socks5h" => socks5_proxy(
+                target_host.as_str(),
+                proxy,
+                username.as_deref(),
+                password.as_deref(),
+            )
+            .map_err(|e| e.into()),
+            "http" | "https" => http_proxy(
+                target_host.as_str(),
+                proxy,
+                username.as_deref(),
+                password.as_deref(),
+            )
+            .map_err(|e| e.into()),
             _ => Err(ProxyError::NotSupportedScheme(proxy)),
         },
-        None => http_proxy(target_host.as_str(), proxy, username, password).map_err(|e| e.into()),
+        None => http_proxy(
+            target_host.as_str(),
+            proxy,
+            username.as_deref(),
+            password.as_deref(),
+        )
+        .map_err(|e| e.into()),
     };
 
     let config = ClientConfig::with_platform_verifier()
@@ -378,14 +391,8 @@ fn websocket_connect_proxy(
 /// `socks5`: SOCKS5 Proxy.  
 /// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
 #[cfg_attr(docsrs, doc(cfg(all(feature = "blocking", feature = "proxy"))))]
-pub fn connect_proxy(
-    proxy: http::Uri,
-    username: Option<&str>,
-    password: Option<&str>,
-) -> Result<MSEdgeTTSClient<ProxyStream>> {
-    Ok(MSEdgeTTSClient(websocket_connect_proxy(
-        proxy, username, password,
-    )?))
+pub fn connect_proxy(proxy: &str) -> Result<MSEdgeTTSClient<ProxyStream>> {
+    Ok(MSEdgeTTSClient(websocket_connect_proxy(proxy)?))
 }
 
 /// Create Sync TTS Stream [Sender] and [Reader] with proxy
@@ -399,10 +406,6 @@ pub fn connect_proxy(
 /// `socks5`: SOCKS5 Proxy.  
 /// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
 #[cfg_attr(docsrs, doc(cfg(all(feature = "blocking", feature = "proxy"))))]
-pub fn msedge_tts_split_proxy(
-    proxy: http::Uri,
-    username: Option<&str>,
-    password: Option<&str>,
-) -> Result<(Sender<ProxyStream>, Receiver<ProxyStream>)> {
-    split(websocket_connect_proxy(proxy, username, password)?)
+pub fn msedge_tts_split_proxy(proxy: &str) -> Result<(Sender<ProxyStream>, Receiver<ProxyStream>)> {
+    split(websocket_connect_proxy(proxy)?)
 }

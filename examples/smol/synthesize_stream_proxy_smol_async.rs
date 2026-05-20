@@ -25,31 +25,19 @@ fn main() {
             if voice.name.contains("YunyangNeural") {
                 println!("choose '{}' to synthesize...", voice.name);
                 let config = Arc::new(SpeechConfig::from(voice));
-                let (sender, reader) = msedge_tts_split_proxy_async(
-                    "http://127.0.0.1:7897".parse().unwrap(),
-                    None,
-                    None,
-                )
-                .await
-                .unwrap();
+                let (sender, reader) = msedge_tts_split_proxy_async("http://127.0.0.1:7897")
+                    .await
+                    .unwrap();
                 synthesize(sender, reader, config.clone()).await;
 
-                let (sender, reader) = msedge_tts_split_proxy_async(
-                    "socks4a://127.0.0.1:7897".parse().unwrap(),
-                    None,
-                    None,
-                )
-                .await
-                .unwrap();
+                let (sender, reader) = msedge_tts_split_proxy_async("socks4a://127.0.0.1:7897")
+                    .await
+                    .unwrap();
                 synthesize(sender, reader, config.clone()).await;
 
-                let (sender, reader) = msedge_tts_split_proxy_async(
-                    "socks5h://127.0.0.1:7897".parse().unwrap(),
-                    None,
-                    None,
-                )
-                .await
-                .unwrap();
+                let (sender, reader) = msedge_tts_split_proxy_async("socks5h://127.0.0.1:7897")
+                    .await
+                    .unwrap();
                 synthesize(sender, reader, config.clone()).await;
                 break;
             }

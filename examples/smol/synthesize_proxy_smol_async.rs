@@ -16,21 +16,17 @@ fn main() {
             if voice.name.contains("YunyangNeural") {
                 println!("choose '{}' to synthesize...", voice.name);
                 let config = SpeechConfig::from(voice);
-                let tts = connect_proxy_async("http://127.0.0.1:7897".parse().unwrap(), None, None)
+                let tts = connect_proxy_async("http://127.0.0.1:7897").await.unwrap();
+                synthesize(tts, &config).await;
+
+                let tts = connect_proxy_async("socks4a://127.0.0.1:7897")
                     .await
                     .unwrap();
                 synthesize(tts, &config).await;
 
-                let tts =
-                    connect_proxy_async("socks4a://127.0.0.1:7897".parse().unwrap(), None, None)
-                        .await
-                        .unwrap();
-                synthesize(tts, &config).await;
-
-                let tts =
-                    connect_proxy_async("socks5h://127.0.0.1:7897".parse().unwrap(), None, None)
-                        .await
-                        .unwrap();
+                let tts = connect_proxy_async("socks5h://127.0.0.1:7897")
+                    .await
+                    .unwrap();
                 synthesize(tts, &config).await;
                 break;
             }

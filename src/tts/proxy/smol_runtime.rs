@@ -15,7 +15,7 @@ use crate::{
         client::MSEdgeTTSClientAsync,
         proxy::{
             build_http_proxy_request, build_socks4_connection_request,
-            build_socks5_authentication_request, build_socks5_connection_request,
+            build_socks5_authentication_request, build_socks5_connection_request, parse_userinfo,
         },
     },
 };
@@ -318,35 +318,46 @@ async fn http_proxy_async(
 }
 
 async fn websocket_connect_proxy_async(
-    proxy: http::Uri,
-    username: Option<&str>,
-    password: Option<&str>,
+    uri: &str,
 ) -> Result<
     async_tungstenite::WebSocketStream<async_tungstenite::smol::ClientStream<ProxyAsyncStream>>,
 > {
+    let proxy: http::Uri = uri.parse().map_err(ProxyError::InvalidProxyUri)?;
+    let (username, password) = parse_userinfo(&proxy);
     let request = build_websocket_request()?;
     let stream: std::result::Result<ProxyAsyncStream, ProxyError> = match proxy.scheme_str() {
         Some(scheme) => match scheme.to_lowercase().as_str() {
             "socks4" | "socks4a" => {
-                socks4_proxy_async(request.uri().host().unwrap(), proxy, username)
+                socks4_proxy_async(request.uri().host().unwrap(), proxy, username.as_deref())
                     .await
                     .map_err(|e| e.into())
             }
-            "socks5" | "socks5h" => {
-                socks5_proxy_asnyc(request.uri().host().unwrap(), proxy, username, password)
-                    .await
-                    .map_err(|e| e.into())
-            }
-            "http" | "https" => {
-                http_proxy_async(request.uri().host().unwrap(), proxy, username, password)
-                    .await
-                    .map_err(|e| e.into())
-            }
-            _ => Err(ProxyError::NotSupportedScheme(proxy)),
-        },
-        None => http_proxy_async(request.uri().host().unwrap(), proxy, username, password)
+            "socks5" | "socks5h" => socks5_proxy_asnyc(
+                request.uri().host().unwrap(),
+                proxy,
+                username.as_deref(),
+                password.as_deref(),
+            )
             .await
             .map_err(|e| e.into()),
+            "http" | "https" => http_proxy_async(
+                request.uri().host().unwrap(),
+                proxy,
+                username.as_deref(),
+                password.as_deref(),
+            )
+            .await
+            .map_err(|e| e.into()),
+            _ => Err(ProxyError::NotSupportedScheme(proxy)),
+        },
+        None => http_proxy_async(
+            request.uri().host().unwrap(),
+            proxy,
+            username.as_deref(),
+            password.as_deref(),
+        )
+        .await
+        .map_err(|e| e.into()),
     };
     let (websocket, _) = async_tungstenite::smol::client_async_tls(request, stream?).await?;
     Ok(websocket)
@@ -364,12 +375,10 @@ async fn websocket_connect_proxy_async(
 /// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
 #[cfg_attr(docsrs, doc(cfg(all(feature = "proxy", feature = "smol-runtime"))))]
 pub async fn connect_proxy_async(
-    proxy: http::Uri,
-    username: Option<&str>,
-    password: Option<&str>,
+    proxy: &str,
 ) -> Result<MSEdgeTTSClientAsync<async_tungstenite::smol::ClientStream<ProxyAsyncStream>>> {
     Ok(MSEdgeTTSClientAsync(
-        websocket_connect_proxy_async(proxy, username, password).await?,
+        websocket_connect_proxy_async(proxy).await?,
     ))
 }
 
@@ -384,12 +393,10 @@ pub async fn connect_proxy_async(
 /// `socks5`: SOCKS5 Proxy.  
 /// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  \
 pub async fn msedge_tts_split_proxy_async(
-    proxy: http::Uri,
-    username: Option<&str>,
-    password: Option<&str>,
+    proxy: &str,
 ) -> Result<(
     SenderAsync<async_tungstenite::smol::ClientStream<ProxyAsyncStream>>,
     ReceiverAsync<async_tungstenite::smol::ClientStream<ProxyAsyncStream>>,
 )> {
-    split(websocket_connect_proxy_async(proxy, username, password).await?)
+    split(websocket_connect_proxy_async(proxy).await?)
 }

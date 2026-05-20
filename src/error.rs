@@ -39,6 +39,8 @@ mod proxy {
     /// Proxy Error
     #[derive(Error, Debug)]
     pub enum ProxyError {
+        #[error("invalid proxy URI: {0}")]
+        InvalidProxyUri(#[from] http::uri::InvalidUri),
         #[error("not supported scheme: {0}")]
         NotSupportedScheme(http::Uri),
         #[error("http proxy error: {0}")]

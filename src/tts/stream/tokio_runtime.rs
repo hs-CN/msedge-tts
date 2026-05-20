@@ -1,9 +1,11 @@
 use std::{sync::Arc, time::Duration};
 
-use async_tungstenite::{WebSocketReceiver, WebSocketSender, WebSocketStream, tokio::ConnectStream};
+use async_tungstenite::{
+    WebSocketReceiver, WebSocketSender, WebSocketStream, tokio::ConnectStream,
+};
 use futures_util::{
-    io::{AsyncRead, AsyncWrite},
     StreamExt,
+    io::{AsyncRead, AsyncWrite},
 };
 use tokio::{sync::Mutex, time::sleep};
 
@@ -101,8 +103,8 @@ pub(crate) fn split<T: AsyncRead + AsyncWrite + Unpin>(
     ))
 }
 
-pub async fn msedge_tts_split_async(
-) -> Result<(SenderAsync<ConnectStream>, ReceiverAsync<ConnectStream>)> {
+pub async fn msedge_tts_split_async()
+-> Result<(SenderAsync<ConnectStream>, ReceiverAsync<ConnectStream>)> {
     split(websocket_connect_tokio_async().await?)
 }
 

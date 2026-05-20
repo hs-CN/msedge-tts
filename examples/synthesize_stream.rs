@@ -1,12 +1,12 @@
 use msedge_tts::{
-    tts::stream::{msedge_tts_split, SynthesizedResponse},
     tts::SpeechConfig,
+    tts::stream::{SynthesizedResponse, msedge_tts_split},
     voice::get_voices_list,
 };
 use std::{
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
     thread::spawn,
     time::Instant,
