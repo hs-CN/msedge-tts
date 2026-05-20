@@ -32,13 +32,13 @@ fn build_socks4_connection_request(
 /// VER (1), IDLEN (1), ID (IDLEN), PWLEN (1), PW (PWLEN)
 fn build_socks5_authentication_request(username: &str, password: &str) -> Vec<u8> {
     let mut bytes = vec![0x01]; // VER
-    if username.len() == 0 {
+    if username.is_empty() {
         bytes.extend([0x01, 0x00]);
     } else {
         bytes.push(username.len() as u8); // IDLEN
         bytes.extend(username.as_bytes()); // ID
     }
-    if password.len() == 0 {
+    if password.is_empty() {
         bytes.extend([0x01, 0x00]);
     } else {
         bytes.push(password.len() as u8); // PWLEN
@@ -83,12 +83,11 @@ fn build_http_proxy_request(
 ) -> String {
     use base64::*;
 
-    if username.is_some() && password.is_some() {
-        let credential = base64::prelude::BASE64_STANDARD.encode(format!(
-            "{}:{}",
-            username.unwrap(),
-            password.unwrap()
-        ));
+    if let Some(username) = username
+        && let Some(password) = password
+    {
+        let credential =
+            base64::prelude::BASE64_STANDARD.encode(format!("{}:{}", username, password));
         format!(
             "CONNECT {}:443 HTTP/1.1\r\nHost: {}:443\r\nProxy-Authorization: Basic {}\r\nProxy-Connection: Keep-Alive\r\n\r\n",
             target_host, target_host, credential

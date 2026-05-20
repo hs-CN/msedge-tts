@@ -20,7 +20,7 @@ use crate::{
 
 pub enum ProxyAsyncStream {
     TcpStream(TcpStream),
-    TlsStream(TlsStream<TcpStream>),
+    TlsStream(Box<TlsStream<TcpStream>>),
 }
 
 impl AsyncRead for ProxyAsyncStream {
@@ -257,7 +257,8 @@ async fn http_proxy_async(
         None => 80,
         Some(scheme) => match scheme.to_lowercase().as_str() {
             "https" => 443,
-            "http" | _ => 80,
+            "http" => 80,
+            _ => 80,
         },
     });
 
@@ -278,7 +279,7 @@ async fn http_proxy_async(
                     tokio_rustls::rustls::pki_types::ServerName::try_from(proxy_host.clone())?;
                 let connector = TlsConnector::from(std::sync::Arc::new(config));
                 let stream = connector.connect(name, stream).await?;
-                ProxyAsyncStream::TlsStream(stream)
+                ProxyAsyncStream::TlsStream(Box::new(stream))
             }
             _ => return Err(HttpProxyError::NotSupportedScheme(proxy)),
         },

@@ -15,7 +15,7 @@ use crate::{
 
 pub enum ProxyStream {
     TcpStream(std::net::TcpStream),
-    TlsStream(RustlsStream<std::net::TcpStream>),
+    TlsStream(Box<RustlsStream<std::net::TcpStream>>),
 }
 
 impl std::io::Read for ProxyStream {
@@ -253,7 +253,8 @@ fn http_proxy(
         None => 80,
         Some(scheme) => match scheme.to_lowercase().as_str() {
             "https" => 443,
-            "http" | _ => 80,
+            "http" => 80,
+            _ => 80,
         },
     });
 
@@ -273,14 +274,14 @@ fn http_proxy(
                 let stream = std::net::TcpStream::connect((proxy_host.as_str(), 443))?;
                 stream.set_nodelay(true)?;
 
-                let config = ClientConfig::with_platform_verifier()
-                    .map_err(|e| HttpProxyError::RustlsError(e))?;
-                let name = ServerName::try_from(proxy_host)
-                    .map_err(|e| HttpProxyError::InvalidDnsName(e))?;
+                let config =
+                    ClientConfig::with_platform_verifier().map_err(HttpProxyError::RustlsError)?;
+                let name =
+                    ServerName::try_from(proxy_host).map_err(HttpProxyError::InvalidDnsName)?;
                 let client = ClientConnection::new(Arc::new(config), name)
-                    .map_err(|e| HttpProxyError::RustlsError(e))?;
+                    .map_err(HttpProxyError::RustlsError)?;
                 let stream = StreamOwned::new(client, stream);
-                ProxyStream::TlsStream(stream)
+                ProxyStream::TlsStream(Box::new(stream))
             }
             _ => return Err(HttpProxyError::NotSupportedScheme(proxy)),
         },

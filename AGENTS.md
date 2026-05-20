@@ -10,7 +10,9 @@ cargo build --all-features
 cargo test                   # no tests exist — only examples
 ```
 
-No CI — run the above manually.
+CI runs these on push/PR to `master` via `.github/workflows/rust.yml`. Can also trigger manually with `workflow_dispatch`.
+
+Platform coverage: `fmt` + `clippy` on ubuntu, `build` + `test` on ubuntu/windows/macos, `android` cross‑compile via `cross` (manual trigger only, see `.github/workflows/android.yml`).
 
 ## Feature flags
 
