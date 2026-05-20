@@ -227,8 +227,8 @@ fn websocket_connect() -> Result<tungstenite::WebSocket<RustlsStream<std::net::T
         .ok_or(Error::Url(UrlError::NoHostName))?
         .to_owned();
 
-    let stream = std::net::TcpStream::connect((host.as_str(), 443)).map_err(|e| Error::Io(e))?;
-    stream.set_nodelay(true).map_err(|e| Error::Io(e))?;
+    let stream = std::net::TcpStream::connect((host.as_str(), 443)).map_err(Error::Io)?;
+    stream.set_nodelay(true).map_err(Error::Io)?;
 
     let config = ClientConfig::with_platform_verifier()
         .map_err(|e| Error::Tls(TlsError::Rustls(Box::new(e))))?;

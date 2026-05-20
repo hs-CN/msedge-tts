@@ -42,3 +42,9 @@ Examples requiring `proxy` declare it in `Cargo.toml` `[[example]]` `required-fe
 - **`opencode.json`** only sets `"lsp": true`.
 - **`Sec-MS-GEC`** header is generated via SHA-256 of ticks as a China 403 workaround (see `gen_sec_ms_gec()` in `src/tts/mod.rs`).
 - **Proxy implementation** is custom (hand-rolled SOCKS4/5 + HTTP CONNECT in `src/tts/proxy/`).
+
+## Project structure
+
+- Library code in `src/`: `tts/` (client, stream, proxy), `voice/`, `error.rs`, `constants.rs`, `lib.rs`
+- Examples in `examples/` with runtime-specific subdirectories: `blocking/`, `smol/`, `tokio/`
+- Each example demonstrates different feature combinations (blocking, smol-runtime, tokio-runtime, with/without proxy)
