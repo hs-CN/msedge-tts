@@ -1,3 +1,61 @@
+# 0.4.0
+## Breaking changes
+- **Full feature flag rewrite**: Added `blocking`, `smol-runtime`, `tokio-runtime`, `proxy` features. `default = ["blocking"]`.
+- **HTTP client replaced**: `isahc` → `ureq` (blocking) / `reqwest` (async).
+- **TLS stack replaced**: `native-tls` / `async-native-tls` → `rustls` + `rustls-platform-verifier`.
+- **Async runtime replaced**: `async-std` / `async-io` / `async-lock` → `smol` / `tokio`.
+- **Proxy implementation rewritten**: Hand-rolled SOCKS4/5 + HTTP CONNECT in `src/tts/proxy/`. `ProxyStream`/`ProxyAsyncStream` enums replace old `native-tls`-based types.
+- **Error type restructured**: `Error::IsahcError` → `Error::UreqError`/`Error::ReqwestError` (feature-gated). `Error::ProxyError` is now `cfg(feature = "proxy")`.
+- **`Voice::from(String)` removed**.
+- **`constants.rs` cleaned up**: Removed unused constants (`SEC_CH_UA`, `SEC_CH_UA_MOBILE`, `SEC_CH_UA_PLATFORM`, `SEC_FETCH_SITE`, `SEC_FETCH_MODE`, `SEC_FETCH_DEST`).
+
+## New features
+- **Feature flags**: `blocking` (default, sync), `smol-runtime` (smol-based async), `tokio-runtime` (tokio-based async), `proxy` (SOCKS4/5 + HTTP CONNECT). Pair `proxy` with any runtime feature.
+- **Split stream API**: `msedge_tts_split()` / `msedge_tts_split_async()` return `(Sender, Receiver)` pairs for streaming synthesis.
+- **Async dual-runtime**: Full support for both `smol` and `tokio` runtimes, selectable via feature flag.
+
+
+## Dependency changes
+### Added
+- `ureq` 3.3.0 (optional, blocking HTTP)
+- `reqwest` 0.13.3 (optional, async HTTP)
+- `rustls` 0.23.40 (optional)
+- `rustls-platform-verifier` 0.7.0 (optional)
+- `http` 1.4.0 (optional, proxy)
+- `httparse` 1.10.1 (optional, proxy)
+- `base64` 0.22.1 (optional, proxy)
+- `async-compat` 0.2.5 (optional, smol-runtime)
+- `smol` 2.0.2 (optional)
+- `futures-rustls` 0.26.0 (optional, smol-runtime)
+- `futures-util` 0.3.32 (optional)
+- `tokio` 1.52.3 (optional)
+- `tokio-rustls` 0.26.4 (optional)
+- `async-tungstenite` 0.34.1 (optional)
+- `rodio` 0.22.2 (dev)
+
+### Removed
+- `isahc`
+- `native-tls` / `async-native-tls`
+- `async-std` / `async-io` / `async-lock`
+
+### Updated
+- `chrono` 0.4.43 → 0.4.44
+- `sha2` 0.10.9 → 0.11.0
+- `tungstenite` 0.28.0 → 0.29.0
+- `uuid` 1.19.0 → 1.23.1
+- `serde` 1.0.228 (same)
+- `serde_json` 1.0.149 (same)
+- `thiserror` 2.0.18 (same)
+
+## Examples
+- **Reorganized**: Split into `examples/smol/` and `examples/tokio/` directories.
+- **New examples**: `get_voices_list_smol_async`, `get_voices_list_tokio_async`, `synthesize_tokio_async`, `synthesize_stream_tokio_async`, `play` and proxy variants for each runtime.
+- **All examples** now declare `required-features` for proper `cargo run` filtering.
+
+## Other
+- Added `opencode.json` for IDE LSP config.
+- Added `AGENTS.md` for AI agent instructions.
+
 # 0.3.0
 ## rust edition update to 2024
 ## dependencies update:  
