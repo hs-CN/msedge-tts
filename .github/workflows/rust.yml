@@ -29,7 +29,7 @@ jobs:
         with:
           toolchain: stable
           components: clippy
-      - run: cargo clippy --all-features --deny warnings
+      - run: cargo clippy --all-features -- --deny warnings
 
   build:
     strategy:
