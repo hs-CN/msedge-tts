@@ -12,7 +12,7 @@ exclude = ["examples/*"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [package.metadata.docs.rs]
-all-features = true
+features = ["blocking", "proxy", "smol-runtime", "tokio-runtime"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 
