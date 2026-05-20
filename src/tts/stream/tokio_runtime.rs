@@ -1,3 +1,5 @@
+//! Tokio Async Runtime
+
 use std::{sync::Arc, time::Duration};
 
 use async_tungstenite::{
@@ -17,12 +19,16 @@ use crate::{
     },
 };
 
+/// Async TTS Stream Sender
 pub struct SenderAsync<T> {
     sender: WebSocketSender<T>,
     can_read: Arc<Mutex<bool>>,
 }
 
 impl<T: AsyncRead + AsyncWrite + Unpin> SenderAsync<T> {
+    /// Synthesize text to speech with a [SpeechConfig] asynchronously.  
+    /// **Caution**: One [send](Self::send) corresponds to multiple [read](ReceiverAsync::read). Next [send](Self::send) call will block until there no data to read.
+    /// [read](ReceiverAsync::read) will block before you call a [send](Self::send).
     pub async fn send(&mut self, text: &str, config: &SpeechConfig) -> Result<()> {
         while !self.can_send().await {
             sleep(Duration::from_millis(1)).await;
@@ -36,11 +42,13 @@ impl<T: AsyncRead + AsyncWrite + Unpin> SenderAsync<T> {
         Ok(())
     }
 
+    /// Check if can send
     pub async fn can_send(&self) -> bool {
         !*self.can_read.lock().await
     }
 }
 
+/// Async TTS Stream Reader
 pub struct ReceiverAsync<T> {
     receiver: WebSocketReceiver<T>,
     can_read: Arc<Mutex<bool>>,
@@ -50,6 +58,9 @@ pub struct ReceiverAsync<T> {
 }
 
 impl<T: AsyncRead + AsyncWrite + Unpin> ReceiverAsync<T> {
+    /// Read Synthesized Audio asynchronously.  
+    /// **Caution**: One [send](SenderAsync::send) corresponds to multiple [read](Self::read). Next [send](SenderAsync::send) call will block until there no data to read.
+    /// [read](Self::read) will block before you call a [send](SenderAsync::send).
     pub async fn read(&mut self) -> Result<Option<SynthesizedResponse>> {
         while !self.can_read().await {
             sleep(Duration::from_millis(1)).await;
@@ -78,6 +89,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin> ReceiverAsync<T> {
         }
     }
 
+    /// Check if can read
     pub async fn can_read(&self) -> bool {
         *self.can_read.lock().await
     }
@@ -103,6 +115,7 @@ pub(crate) fn split<T: AsyncRead + AsyncWrite + Unpin>(
     ))
 }
 
+/// Create Async TTS Stream [SenderAsync] and [ReceiverAsync]
 pub async fn msedge_tts_split_async()
 -> Result<(SenderAsync<ConnectStream>, ReceiverAsync<ConnectStream>)> {
     split(websocket_connect_tokio_async().await?)

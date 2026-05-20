@@ -22,7 +22,7 @@ pub struct MSEdgeTTSClientAsync<T>(pub(crate) async_tungstenite::WebSocketStream
 impl<T: futures_util::io::AsyncRead + futures_util::io::AsyncWrite + Unpin>
     MSEdgeTTSClientAsync<T>
 {
-    /// Synthesize text to speech with a [SpeechConfig] asynchronously
+    /// Synthesize text to speech with a [crate::tts::SpeechConfig] asynchronously
     pub async fn synthesize(
         &mut self,
         text: &str,

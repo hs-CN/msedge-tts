@@ -1,3 +1,5 @@
+//! Tokio Async Runtime
+
 use crate::error::Result;
 use crate::tts::{client::MSEdgeTTSClientAsync, websocket_connect_tokio_async};
 

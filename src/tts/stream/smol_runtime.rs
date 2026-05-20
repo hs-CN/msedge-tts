@@ -1,3 +1,5 @@
+//! Smol Async Runtime
+
 use std::{sync::Arc, time::Duration};
 
 use async_tungstenite::{WebSocketReceiver, WebSocketSender, WebSocketStream, smol::ConnectStream};
@@ -24,8 +26,8 @@ pub struct SenderAsync<T> {
 
 impl<T: AsyncRead + AsyncWrite + Unpin> SenderAsync<T> {
     /// Synthesize text to speech with a [SpeechConfig] asynchronously.  
-    /// **Caution**: One [send](Self::send) corresponds to multiple [read](ReaderAsync::read). Next [send](Self::send) call will block until there no data to read.
-    /// [read](ReaderAsync::read) will block before you call a [send](Self::send).
+    /// **Caution**: One [send](Self::send) corresponds to multiple [read](ReceiverAsync::read). Next [send](Self::send) call will block until there no data to read.
+    /// [read](ReceiverAsync::read) will block before you call a [send](Self::send).
     pub async fn send(&mut self, text: &str, config: &SpeechConfig) -> Result<()> {
         while !self.can_send().await {
             Timer::after(Duration::from_millis(1)).await;
@@ -112,7 +114,7 @@ pub(crate) fn split<T: AsyncRead + AsyncWrite + Unpin>(
     ))
 }
 
-/// Create Async TTS Stream [SenderAsync] and [ReaderAsync]
+/// Create Async TTS Stream [SenderAsync] and [ReceiverAsync]
 pub async fn msedge_tts_split_async()
 -> Result<(SenderAsync<ConnectStream>, ReceiverAsync<ConnectStream>)> {
     split(websocket_connect_smol_async().await?)

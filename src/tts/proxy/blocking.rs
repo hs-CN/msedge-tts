@@ -172,7 +172,7 @@ fn socks5_proxy(
                 return Err(Socks5ProxyError::NoIpAddr(format!("{}:443", target_host)));
             }
         }
-        "socks5h" => build_socks5_connection_request(target_host, None),
+        "socks" | "socks5h" => build_socks5_connection_request(target_host, None),
         _ => return Err(Socks5ProxyError::NotSupportedScheme(proxy)),
     };
     stream.write_all(&request)?;
@@ -336,7 +336,7 @@ fn websocket_connect_proxy(uri: &str) -> Result<tungstenite::WebSocket<RustlsStr
             "socks4" | "socks4a" => {
                 socks4_proxy(target_host.as_str(), proxy, username.as_deref()).map_err(|e| e.into())
             }
-            "socks5" | "socks5h" => socks5_proxy(
+            "socks" | "socks5" | "socks5h" => socks5_proxy(
                 target_host.as_str(),
                 proxy,
                 username.as_deref(),
@@ -382,29 +382,37 @@ fn websocket_connect_proxy(uri: &str) -> Result<tungstenite::WebSocket<RustlsStr
 
 /// Create Sync TTS [Client](MSEdgeTTSClient) with proxy
 ///
+/// # Arguments:
+///
+/// * `proxy` - a str of format `<protocol>://<user>:<password>@<host>:port`.
+///
 /// The proxy protocol is specified by the URI scheme.
 ///
-/// `http`: Proxy. Default when no scheme is specified.  
-/// `https`: HTTPS Proxy.  
-/// `socks4`: SOCKS4 Proxy.  
-/// `socks4a`: SOCKS4a Proxy. Proxy resolves URL hostname.  
-/// `socks5`: SOCKS5 Proxy.  
-/// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
+/// * `http`: Proxy. Default when no scheme is specified.  
+/// * `https`: HTTPS Proxy.  
+/// * `socks4`: SOCKS4 Proxy.  
+/// * `socks4a`: SOCKS4a Proxy. Proxy resolves URL hostname.  
+/// * `socks5`: SOCKS5 Proxy.  
+/// * `socks` | `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
 #[cfg_attr(docsrs, doc(cfg(all(feature = "blocking", feature = "proxy"))))]
 pub fn connect_proxy(proxy: &str) -> Result<MSEdgeTTSClient<ProxyStream>> {
     Ok(MSEdgeTTSClient(websocket_connect_proxy(proxy)?))
 }
 
-/// Create Sync TTS Stream [Sender] and [Reader] with proxy
+/// Create Sync TTS Stream [Sender] and [Receiver] with proxy
+///
+/// # Arguments:
+///
+/// * `proxy` - a str of format `<protocol>://<user>:<password>@<host>:port`.
 ///
 /// The proxy protocol is specified by the URI scheme.
 ///
-/// `http`: Proxy. Default when no scheme is specified.  
-/// `https`: HTTPS Proxy.  
-/// `socks4`: SOCKS4 Proxy.  
-/// `socks4a`: SOCKS4a Proxy. Proxy resolves URL hostname.  
-/// `socks5`: SOCKS5 Proxy.  
-/// `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
+/// * `http`: Proxy. Default when no scheme is specified.  
+/// * `https`: HTTPS Proxy.  
+/// * `socks4`: SOCKS4 Proxy.  
+/// * `socks4a`: SOCKS4a Proxy. Proxy resolves URL hostname.  
+/// * `socks5`: SOCKS5 Proxy.  
+/// * `socks` | `socks5h`: SOCKS5 Proxy. Proxy resolves URL hostname.  
 #[cfg_attr(docsrs, doc(cfg(all(feature = "blocking", feature = "proxy"))))]
 pub fn msedge_tts_split_proxy(proxy: &str) -> Result<(Sender<ProxyStream>, Receiver<ProxyStream>)> {
     split(websocket_connect_proxy(proxy)?)

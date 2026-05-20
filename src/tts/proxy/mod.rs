@@ -130,6 +130,7 @@ pub(crate) mod smol_runtime;
 #[cfg(feature = "tokio-runtime")]
 pub(crate) mod tokio_runtime;
 
+#[cfg(test)]
 mod tests {
     use super::parse_userinfo;
 

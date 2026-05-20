@@ -9,7 +9,7 @@ pub struct VoiceTag {
     pub voice_personalities: Option<Vec<String>>,
 }
 
-/// Voice get from MS Edge Read aloud API.
+/// Voice obtained from the MS Edge Read Aloud API.
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct Voice {
     #[serde(rename = "Name")]

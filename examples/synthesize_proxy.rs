@@ -25,6 +25,9 @@ fn main() {
 
             let tts = connect_proxy("socks5://127.0.0.1:7897").unwrap();
             synthesize(tts, &config);
+
+            let tts = connect_proxy("socks://127.0.0.1:7897").unwrap();
+            synthesize(tts, &config);
             break;
         }
     }

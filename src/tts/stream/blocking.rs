@@ -20,8 +20,8 @@ pub struct Sender<T: Read + Write> {
 
 impl<T: Read + Write> Sender<T> {
     /// Synthesize text to speech with a [SpeechConfig] synchronously.  
-    /// **Caution**: One [send](Self::send) corresponds to multiple [read](Reader::read). Next [send](Self::send) call will block until there no data to read.
-    /// [read](Reader::read) will block before you call a [send](Self::send).
+    /// **Caution**: One [send](Self::send) corresponds to multiple [read](Receiver::read). Next [send](Self::send) call will block until there no data to read.
+    /// [read](Receiver::read) will block before you call a [send](Self::send).
     pub fn send(&mut self, text: &str, config: &SpeechConfig) -> Result<()> {
         let (can_read, cvar) = &*self.can_read_cvar;
         let mut can_read = can_read.lock().unwrap();
@@ -112,7 +112,7 @@ pub(crate) fn split<T: Read + Write>(
     Ok((sender, reader))
 }
 
-/// Create Sync TTS Stream [Sender] and [Reader]
+/// Create Sync TTS Stream [Sender] and [Receiver]
 pub fn msedge_tts_split() -> Result<(Sender<TcpStream>, Receiver<TcpStream>)> {
     split(websocket_connect()?)
 }

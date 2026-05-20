@@ -1,3 +1,5 @@
+//! Smol Async Runtime
+
 use crate::error::Result;
 use crate::tts::{client::MSEdgeTTSClientAsync, websocket_connect_smol_async};
 
