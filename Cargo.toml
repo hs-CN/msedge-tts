@@ -54,38 +54,38 @@ tokio-runtime = [
 
 
 [dependencies]
-chrono = "0.4.44"
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.149"
-thiserror = "2.0.18"
-tungstenite = "0.29.0"
-uuid = { version = "1.23.1", features = ["fast-rng", "v4"] }
+chrono = "0.4.45"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+thiserror = "2.0.21"
+tungstenite = "0.30.0"
+uuid = { version = "1.28.0", features = ["fast-rng", "v4"] }
 
 [dependencies.ureq]
-version = "3.3.0"
+version = "3.4.2"
 optional = true
 default-features = false
 features = ["gzip", "json", "rustls-no-provider", "platform-verifier"]
 
 [dependencies.reqwest]
-version = "0.13.3"
+version = "0.13.5"
 optional = true
 features = ["gzip", "json"]
 
 [dependencies.async-compat]
-version = "0.2.5"
+version = "0.2.6"
 optional = true
 
 [dependencies.rustls]
-version = "0.23.40"
+version = "0.23.46"
 optional = true
 
 [dependencies.rustls-platform-verifier]
-version = "0.7.0"
+version = "0.7.1"
 optional = true
 
 [dependencies.http]
-version = "1.4.0"
+version = "1.5.0"
 optional = true
 
 [dependencies.httparse]
@@ -93,11 +93,11 @@ version = "1.10.1"
 optional = true
 
 [dependencies.base64]
-version = "0.22.1"
+version = "0.23.1"
 optional = true
 
 [dependencies.async-tungstenite]
-version = "0.34.1"
+version = "0.35.0"
 optional = true
 
 [dependencies.smol]
@@ -109,23 +109,23 @@ version = "0.26.0"
 optional = true
 
 [dependencies.futures-util]
-version = "0.3.32"
+version = "0.3.34"
 optional = true
 default-features = false
 features = ["std", "io"]
 
 [dependencies.tokio]
-version = "1.52.3"
+version = "1.53.3"
 optional = true
 
 [dependencies.tokio-rustls]
-version = "0.26.4"
+version = "0.26.6"
 optional = true
 
 
 [dev-dependencies]
 tokio = { version = "1.52.3", features = ["net", "rt", "time"] }
-rodio = "0.22.2"
+rodio = "0.23.0"
 smol = "2.0.2"
 
 
@@ -172,6 +172,11 @@ path = "examples/smol/synthesize_stream_proxy_smol_async.rs"
 required-features = ["smol-runtime", "proxy"]
 
 [[example]]
+name = "play_smol_async"
+path = "examples/smol/play_smol_async.rs"
+required-features = ["smol-runtime"]
+
+[[example]]
 name = "get_voices_list_tokio_async"
 path = "examples/tokio/get_voices_list_tokio_async.rs"
 required-features = ["tokio-runtime"]
@@ -200,3 +205,8 @@ required-features = ["tokio-runtime", "proxy"]
 name = "synthesize_stream_proxy_tokio_async"
 path = "examples/tokio/synthesize_stream_proxy_tokio_async.rs"
 required-features = ["tokio-runtime", "proxy"]
+
+[[example]]
+name = "play_tokio_async"
+path = "examples/tokio/play_tokio_async.rs"
+required-features = ["tokio-runtime"]
